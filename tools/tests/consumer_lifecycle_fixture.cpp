@@ -40,6 +40,18 @@ static int __cdecl Output(int force, int) {
 static void __cdecl Zero() { events.push_back(4); }
 static void __cdecl Free() { events.push_back(5); }
 static void __cdecl Panic() { events.push_back(6); assert(!ConsumerLifecycle::Runtime().ClaimFinalization()); }
+static ConsumerLifecycle::Gate* reconciliationGate = nullptr;
+static std::promise<void> beforeReconciliation, allowReconciliation;
+static std::shared_future<void> reconcileSignal;
+static std::atomic<int> reconciliationCalls = 0;
+static void ReconciliationBarrier() {
+    if (++reconciliationCalls == 1) {
+        beforeReconciliation.set_value();
+        assert(reconcileSignal.wait_for(3s)==std::future_status::ready);
+    }
+    ConsumerLifecycle::Gate::Lease control(*reconciliationGate, true);
+    assert(control && reconciliationGate->Current()==ConsumerLifecycle::Gate::Phase::Paused);
+}
 
 int main() {
     using namespace ConsumerLifecycle;
@@ -67,6 +79,20 @@ int main() {
     assert(finalizer.wait_for(3s)==std::future_status::ready); finalizer.get();
     assert(queued.wait_for(3s)==std::future_status::ready); queued.get();
     assert(otherFinalizer.wait_for(3s)==std::future_status::ready); otherFinalizer.get();
+    // Cancellation racing an idle callback before that callback takes its own
+    // control lease must not reopen admission around unfinished reconciliation.
+    Gate reconciling; reconciliationGate=&reconciling;
+    reconciling.SetIdleCallback(ReconciliationBarrier);
+    reconcileSignal=allowReconciliation.get_future().share();
+    auto reconcileProducer=std::async(std::launch::async,[&] {
+        Gate::Lease outer(reconciling); assert(!reconciling.Pause());
+    });
+    assert(beforeReconciliation.get_future().wait_for(3s)==std::future_status::ready);
+    reconciling.Resume(); assert(reconciling.Current()==Gate::Phase::Paused);
+    { Gate::Lease denied(reconciling); assert(!denied); }
+    allowReconciliation.set_value();
+    assert(reconcileProducer.wait_for(3s)==std::future_status::ready); reconcileProducer.get();
+    assert(reconciling.Current()==Gate::Phase::Running && reconciliationCalls==2);
 
     HWND hwnd = reinterpret_cast<HWND>(1); Game::hWnd_ptr = &hwnd;
     Settings::TelemetryEnabled = false;
@@ -99,9 +125,37 @@ int main() {
     events.clear(); FFB::initialized = true;
     { Gate::Lease lease(Runtime()); assert(!Runtime().Pause()); Runtime().Resume(); }
     assert((events == std::vector<int>{4})); assert(Runtime().Current()==Gate::Phase::Running);
+    // Review regression: pending selection overlapping a canceled close/session.
+    // Exercise cancellation both inside the original producer and after it ends.
+    for (const bool lateCancellation : {false, true}) {
+        events.clear(); FFB::initialized = FFB::initAttempted = true;
+        FFB::periodicsActive = true; FFB::slotRoadTexture = 0; FFB::slotTireSlip = 1;
+        FFB::prevConstantLevel = FFB::prevStructLevel = 900;
+        {
+            Gate::Lease outer(Runtime());
+            FFB::SelectionChanged(); assert(FFB::selectionPending);
+            assert(!Runtime().Pause());
+            if (!lateCancellation) Runtime().Resume();
+        }
+        if (lateCancellation) {
+            assert(Runtime().Current()==Gate::Phase::Paused);
+            assert(FFB::selectionPending && FFB::initialized && FFB::initAttempted);
+            assert((events==std::vector<int>{4}));
+            FFB::SetConstantForce(900); assert(events.size()==1);
+            Runtime().Resume();
+            assert((events==std::vector<int>{4,4,5}));
+        } else assert((events==std::vector<int>{4,5}));
+        assert(Runtime().Current()==Gate::Phase::Running);
+        assert(!FFB::selectionPending && !FFB::initialized && !FFB::initAttempted);
+        assert(!FFB::periodicsActive && FFB::slotRoadTexture==-1 && FFB::slotTireSlip==-1);
+        assert(FFB::prevConstantLevel==0 && FFB::prevStructLevel==0);
+        const auto reconciled=events.size();
+        FFB::SetConstantForce(900); FFB::UpdatePeriodic(0,1,25);
+        assert(events.size()==reconciled); // A freed selection cannot admit output.
+    }
     // Terminal request from inside native callback cannot self-wait. Outer
     // boundary owns the eventual finalization; every producer then refuses work.
-    events.clear(); reentrantClose = true; FFB::SetConstantForce(900);
+    events.clear(); FFB::initialized = true; reentrantClose = true; FFB::SetConstantForce(900);
     assert(Runtime().Current()==Gate::Phase::Stopping);
     assert(Runtime().ClaimFinalization()); FFB::FinalizeForExit(); Runtime().CompleteFinalization();
     assert((events == std::vector<int>{1,6,5}));
@@ -111,5 +165,5 @@ int main() {
     Telemetry::SetEnabled(true); assert(!Settings::TelemetryEnabled);
     assert(!FFB::DeferredInit() && !Runtime().ClaimFinalization());
     assert(events.size()==count);
-    std::cout << "PASS: production gate drain/reentrancy; unknown-host output refusal; delayed and reentrant recoverable device switch; reversible silence; once-only finalization; stopped FFB/UI/watchdog/telemetry rejection. Fake ABI only.\n";
+    std::cout << "PASS: production gate drain/reentrancy; unknown-host output refusal; delayed/reentrant device switch; selection plus canceled close/session reconciles before admission (deferred and later cancellation); freed-device constant/periodic refusal; reversible silence; once-only finalization; stopped producer rejection. Fake ABI only.\n";
 }

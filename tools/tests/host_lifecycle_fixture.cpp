@@ -111,7 +111,7 @@ int wmain(int argc, wchar_t** argv) {
     assert(ReadyForActuator(reinterpret_cast<void*>(1)) && guardedWindow);
     const int beforeSilence=silences;
     Guard(guardedWindow,WM_ACTIVATEAPP,FALSE,0,0,0);
-    assert(silences==beforeSilence+1 && Runtime().Current()==Gate::Phase::Running);
+    assert(silences==beforeSilence+2 && Runtime().Current()==Gate::Phase::Running);
     // A conflicting patch after our bootstrap blocks output too.
     synthetic[LoopCallRva]^=1; assert(!ReadyForActuator(reinterpret_cast<void*>(1))); synthetic[LoopCallRva]^=1;
     Guard(guardedWindow,WM_CLOSE,0,0,0,0);

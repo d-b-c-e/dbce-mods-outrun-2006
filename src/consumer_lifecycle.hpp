@@ -54,11 +54,14 @@ public:
             --active_;
             if (!active_) {
                 drained_.notify_all();
-                if (deferredSilence_ && !depth_) { deferredSilence_ = false; idle = idle_; }
+                if (deferredSilence_ && !depth_) {
+                    deferredSilence_ = false; idle = idle_;
+                    if (idle) ++active_; // Reserve reconciliation before unlocking admission.
+                }
             }
         }
         // No admission/producer lock held across the deferred native callback.
-        if (idle) idle();
+        if (idle) { idle(); Release(false); return; }
         {
             std::lock_guard lock(state_);
             if (!active_ && deferredResume_ && phase_ == Phase::Paused) {
@@ -72,17 +75,34 @@ public:
         std::lock_guard lock(state_);
         if (phase_ == Phase::Stopping || phase_ == Phase::Stopped) return false;
         phase_ = Phase::Paused;
+        deferredResume_ = false; // A fresh request supersedes an earlier cancellation.
         // A window callback must not block on a producer that may itself be
         // waiting for the owner thread to dispatch a message.
         if (active_) { deferredSilence_ = true; return false; }
         return true;
     }
     void Resume() {
-        std::lock_guard lock(state_);
-        if (phase_ != Phase::Paused) return;
-        if (depth_ || active_) deferredResume_ = true;
-        else phase_ = Phase::Running;
+        void (*idle)() = nullptr;
+        {
+            std::lock_guard lock(state_);
+            if (phase_ != Phase::Paused) return;
+            deferredResume_ = true;
+            if (active_) { deferredSilence_ = true; return; }
+            deferredSilence_ = false;
+            idle = idle_;
+            if (idle) ++active_; // A concurrent cancellation cannot bypass its callback.
+        }
+        // Stay Paused while control work reconciles a deferred selection. This
+        // is also required when cancellation arrives after the producer ended.
+        if (idle) { idle(); Release(false); return; }
+        {
+            std::lock_guard lock(state_);
+            if (!active_ && deferredResume_ && phase_ == Phase::Paused) {
+                deferredResume_ = false; phase_ = Phase::Running;
+            }
+        }
     }
+    bool ResumeRequested() { std::lock_guard lock(state_); return deferredResume_ && phase_ == Phase::Paused; }
     void RequestStop() { std::lock_guard lock(state_); if (phase_ != Phase::Stopped) phase_ = Phase::Stopping; }
     bool ClaimFinalization() {
         if (depth_) { RequestStop(); return false; } // Never wait on this thread's lease.

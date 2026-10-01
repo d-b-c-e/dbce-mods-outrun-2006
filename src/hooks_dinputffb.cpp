@@ -426,7 +426,7 @@ namespace FFB
 	{
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
         if (!lease || !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return;
-		if (!ffbLoaded || panicStopped)
+		if (!initialized || !ffbLoaded || panicStopped)
 			return;
 		magnitude = std::clamp(magnitude, (LONG)-10000, (LONG)10000);
 		LONG scaled = (LONG)std::clamp((float)magnitude * StrengthScale(), -10000.0f, 10000.0f);
@@ -445,7 +445,7 @@ namespace FFB
 	{
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
         if (!lease || !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return;
-		if (slot < 0 || !ffbLoaded || panicStopped)
+		if (!initialized || slot < 0 || !ffbLoaded || panicStopped)
 			return;
 		float mag = std::clamp(magnitude01, 0.0f, 1.0f) * StrengthScale();
 		ffb.UpdatePeriodicEffect(slot, (int)(mag * 10000.0f),
@@ -545,11 +545,13 @@ namespace FFB
 		if (!initialized) { initAttempted = false; deviceError.clear(); }
 	}
 
-	static void ApplySelectionChanged()
+	static void ApplySelectionChanged(bool resumePaused = false)
 	{
-        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime(), resumePaused);
         if (!lease) return;
-		ZeroAllForces();
+        // LifecycleIdle already silenced this paused handle. Normal producer
+        // output remains inhibited until its release/reset has completed.
+        if (!resumePaused) ZeroAllForces();
 		if (ffbLoaded && initialized) ffb.FreeDirectInput();
 		initialized = false;
 		initAttempted = false;
@@ -572,9 +574,12 @@ namespace FFB
             if (initialized && ffbLoaded && !panicStopped) ffb.ZeroForces();
             prevConstantLevel = prevStructLevel = 0;
             warmupFrames = 0;
-        } else if (selectionPending) {
+        }
+        const bool resumePaused = ConsumerLifecycle::Runtime().ResumeRequested();
+        if (selectionPending && (resumePaused ||
+            ConsumerLifecycle::Runtime().Current() == ConsumerLifecycle::Gate::Phase::Running)) {
             selectionPending = false;
-            ApplySelectionChanged();
+            ApplySelectionChanged(resumePaused);
         }
     }
     void SelectionChanged()

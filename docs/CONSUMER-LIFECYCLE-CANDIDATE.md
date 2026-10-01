@@ -42,8 +42,11 @@ cleanup CALL; the callback does not change its context or call game cleanup itse
 FFB, remap producers, SDL input/rumble and binding UI, wheel UI, watchdog and
 telemetry settings/output share admission. Device selection is a serialized
 recoverable transition: old output completes before zero/release; a reentrant
-selection defers until the outermost lease ends. Existing settings/defaults,
-force shaping and caps are unchanged. Process detach does no explicit foreign
+selection defers until the outermost lease ends.
+Pending selection overlapping a close/session pause is reconciled while admission
+is still paused, before canceled-request recovery can admit normal output. This
+also applies when cancellation arrives after the original producer has ended.
+Existing settings/defaults, force shaping and caps are unchanged. Process detach does no explicit foreign
 ABI, wait, logging or FreeLibrary; the InputManager is retained so its destructor
 cannot close SDL controllers under loader lock.
 

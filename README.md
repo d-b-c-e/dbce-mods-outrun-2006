@@ -1,8 +1,9 @@
 # DBCE Mods: OutRun 2006
 
 Canonical repository: [dbce-mods-outrun-2006](https://github.com/d-b-c-e/dbce-mods-outrun-2006)
-(planned name; no remote rename yet). Current source:
-[OutRun2006Tweaks-FFB](https://github.com/d-b-c-e/OutRun2006Tweaks-FFB).
+The existing public repository was renamed in place on 2026-10-01, retaining
+numeric ID `1163595970`, history and default branch. The legacy URL
+[OutRun2006Tweaks-FFB](https://github.com/d-b-c-e/OutRun2006Tweaks-FFB) redirects here.
 
 This is the runtime/package source for the **OutRun 2006: Coast 2 Coast PC mod**.
 Wheel, FFB and telemetry share the existing installer and settings. See

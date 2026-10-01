@@ -7,7 +7,7 @@
   "repositoryUrl": "https://github.com/d-b-c-e/dbce-mods-outrun-2006",
   "repositoryId": 1163595970,
   "legacyRepositoryAliases": [ "d-b-c-e/OutRun2006Tweaks-FFB" ],
-  "repositoryRenameStatus": "planned; remote repository has not been renamed",
+  "repositoryRenameStatus": "completed; existing repository renamed in place on 2026-10-01",
   "runtime": "OutRun2006Tweaks-FFB",
   "executable": "OR2006C2C.EXE",
   "architecture": "x86",

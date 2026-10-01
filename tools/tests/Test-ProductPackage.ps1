@@ -19,7 +19,7 @@ foreach ($name in 'product.json','UNIFIED-PRODUCT.md','LICENSE.md','Install.ps1'
 $product = Get-Content -LiteralPath (Join-Path $out 'product.json') -Raw | ConvertFrom-Json
 if ($product.canonicalRepository -ne 'd-b-c-e/dbce-mods-outrun-2006' -or $product.repositoryUrl -ne 'https://github.com/d-b-c-e/dbce-mods-outrun-2006' -or $product.repositoryId -ne 1163595970 -or $product.legacyRepositoryAliases -notcontains 'd-b-c-e/OutRun2006Tweaks-FFB') { throw 'Canonical repository identity or legacy alias lost' }
 if ($product.productId -ne 'outrun2006-c2c-pc' -or $product.runtime -ne 'OutRun2006Tweaks-FFB' -or $product.executable -ne 'OR2006C2C.EXE' -or $product.settings -ne 'OutRun2006Tweaks.ini') { throw 'Stable product/runtime compatibility changed' }
-if ($product.repositoryRenameStatus -notlike 'planned*') { throw 'Unperformed remote rename must not be claimed' }
+if ($product.repositoryRenameStatus -ne 'completed; existing repository renamed in place on 2026-10-01') { throw 'Verified completed in-place rename status lost' }
 foreach ($name in 'tripleScreen','sessionRecording','drivingInputPlayback') {
     if ($product.features.$name.implemented -or $product.features.$name.accepted) { throw "Unsupported feature claimed: $name" }
 }

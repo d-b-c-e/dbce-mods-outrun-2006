@@ -1,9 +1,9 @@
 # DBCE Mods: OutRun 2006 product boundary
 
 Canonical repository URL: https://github.com/d-b-c-e/dbce-mods-outrun-2006.
-This name is prepared locally; the current public repository remains
-https://github.com/d-b-c-e/OutRun2006Tweaks-FFB, numeric ID `1163595970`.
-The intended rename preserves that ID, history, visibility and source lineage.
+The existing public repository was renamed in place on 2026-10-01, preserving
+numeric ID `1163595970`, history, visibility, default branch and source lineage.
+The legacy URL https://github.com/d-b-c-e/OutRun2006Tweaks-FFB redirects here.
 This PC product is distinct from `dbce-mods-outrun-arcade`.
 The stable product ID `outrun2006-c2c-pc` and runtime field
 `OutRun2006Tweaks-FFB` are compatibility identities, not new repository names.

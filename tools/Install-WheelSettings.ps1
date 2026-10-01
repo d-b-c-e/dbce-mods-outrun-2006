@@ -88,6 +88,15 @@ if ($Action -eq 'Restore') {
 $package = (Resolve-Path -LiteralPath $PackageDirectory).Path
 $manifest = Get-Content -LiteralPath (Join-Path $package 'package-manifest.json') -Raw | ConvertFrom-Json
 if ($manifest.schemaVersion -ne 1 -or $manifest.architecture -ne 'x86') { throw 'Unsupported package manifest.' }
+# Additive metadata: historical schema-1 packages remain compatible. New
+# descriptors must match their manifest and game before any runtime replacement.
+$productEntries = @($manifest.files | Where-Object name -eq 'product.json')
+$productPath = Join-Path $package 'product.json'
+if ($productEntries.Count -gt 0 -or (Test-Path -LiteralPath $productPath)) {
+    if ($productEntries.Count -ne 1 -or -not (Test-Path -LiteralPath $productPath) -or (Hash $productPath) -ne $productEntries[0].sha256) { throw 'Package hash mismatch: product.json' }
+    $product = Get-Content -LiteralPath $productPath -Raw | ConvertFrom-Json
+    if ($product.schemaVersion -ne 1 -or $product.productId -ne 'outrun2006-c2c-pc' -or $product.executable -ne 'OR2006C2C.EXE' -or $product.architecture -ne 'x86') { throw 'Unsupported product identity.' }
+}
 foreach ($name in $runtime + $seed) {
     $entry = @($manifest.files | Where-Object name -eq $name)
     if ($entry.Count -ne 1 -or (Hash (Join-Path $package $name)) -ne $entry[0].sha256) { throw "Package hash mismatch: $name" }

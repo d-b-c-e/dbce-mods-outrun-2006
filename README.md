@@ -1,4 +1,11 @@
-# OutRun2006Tweaks — FFB Fork
+# OutRun2006Tweaks - FFB Fork
+
+This is the runtime/package source for the **OutRun 2006: Coast 2 Coast PC mod**.
+Wheel, FFB and telemetry share the existing installer and settings. See
+[the product boundary and release policy](docs/UNIFIED-PRODUCT.md) and
+[`product.json`](product.json) for capability flags and legacy preservation.
+True triples, session recording and driving-input playback remain unavailable
+in this package. Related Redux visual/configuration history is retained separately.
 
 > **Fork of [emoose/OutRun2006Tweaks](https://github.com/emoose/OutRun2006Tweaks)** adding force feedback and telemetry for steering wheels. Part of the [OutRun 2006 Redux](../outrun2006-redux) project.
 

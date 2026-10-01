@@ -1,0 +1,50 @@
+# OutRun 2006 PC product boundary
+
+This repository is the runtime and package source for the OutRun 2006: Coast 2
+Coast PC mod. `product.json` records the game identity and implemented versus
+accepted features. Wheel, force feedback and telemetry already share one x86
+proxy, one settings store and one installer. This milestone retains that layout.
+Triple-screen rendering, session recording and driving-input playback are not
+implemented by this package. Camera/render hooks are research footholds only.
+
+## Consolidation decision
+
+Retain the OutRun2006Tweaks-FFB runtime history and existing setup/package scripts.
+Do not merge the related Redux repository into this runtime. Its older texture,
+configuration and game-content work has different provenance and acceptance;
+its historical completion statements do not supersede this fork's latest gaps.
+ReduxConfig and assets are not shipped here. Reconcile exact owner, licensing,
+configuration authority and payload identity before any later integration.
+Keep CannonBall and OutRun 2 SP SDX as separate products.
+
+## Setup and legacy settings
+
+Use the existing packaged `Install.bat`, then F6 Setup. Preserve all existing
+root INI/CFG/JSON/XML files byte for byte, including Redux-associated settings,
+unknown keys and bindings. Seed defaults only when absent. No settings conversion,
+rename, reset, backend change or force enable is part of consolidation. Runtime
+restore retains subsequent settings. Existing unknown-proxy refusal and x86 game
+guards remain. Game-folder working directory is required for normal launch.
+
+## Release and preservation
+
+One immutable ZIP and `package-manifest.json` describe the installable runtime,
+installer, settings templates, product descriptor and hashes. Runtime and
+installer commits remain distinct for repacks; do not relabel historical DLLs
+as rebuilt. Preserve existing tags, ZIPs, backup receipts and toolkit pins:
+v0.8.0 baseline and v0.13.0 native/header override (native 0.6.0).
+`product.json` is metadata, not a runtime enable switch or support certification.
+Legacy schema-1 packages without it remain installable. New packages hash and
+validate it before runtime replacement. No new public release/version is claimed.
+
+## Review gates
+
+Resolve the consumer/actuator owner and current installation checkpoint before
+promotion. Native title confirmation failed historically on candidate and baseline;
+physical driving, force and player-camera acceptance remain incomplete. Keep FFB
+Off. No game/device/display test, deployment or remote change is authorized by
+this source consistency milestone. Preserve F-Zero Deluxe's reservation.
+
+At intake, runtime HEAD was cb0f0f1 on codex/ux-simple-settings-2026-09-16.
+Related Redux main was 5d2eb52, with five untracked owner files (INI and
+ReduxConfig/manifest outputs). None is imported or edited by this candidate.

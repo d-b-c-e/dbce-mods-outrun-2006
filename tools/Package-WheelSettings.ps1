@@ -26,6 +26,8 @@ foreach ($name in 'OutRun2006Tweaks.ini','OutRun2006Tweaks.lods.ini') { Copy-Ite
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install-WheelSettings.ps1') -Destination (Join-Path $out 'Install.ps1')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install-WheelSettings.bat') -Destination (Join-Path $out 'Install.bat')
 Copy-Item -LiteralPath (Join-Path $root 'docs/INSTALL-WHEEL-SETTINGS.md') -Destination (Join-Path $out 'README.md')
+Copy-Item -LiteralPath (Join-Path $root 'product.json') -Destination $out
+Copy-Item -LiteralPath (Join-Path $root 'docs/UNIFIED-PRODUCT.md') -Destination $out
 $provenance = Join-Path $out 'provenance'
 New-Item -ItemType Directory -Path $provenance | Out-Null
 foreach ($name in 'VERSION','NATIVE-VERSION','NATIVE-PROVENANCE.json','MANIFEST.txt') { Copy-Item -LiteralPath (Join-Path $root "lib/toolkit/$name") -Destination $provenance }

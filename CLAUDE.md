@@ -59,8 +59,12 @@ Close the game before deploying; it locks the DLL.
 
 **Never hard-kill the game while a wheel is attached.** A running DirectInput
 constant-force effect is not released when the process dies, so the base keeps
-applying the last torque and the next launch reads as "no force feedback". Exit
-through the game, or Alt+F4 — both are covered by the exit guards.
+applying the last torque and the next launch reads as "no force feedback". Use
+normal game exit. The isolated lifecycle candidate covers the inspected exact-build
+loop-return route, with device-free evidence only; see
+[the lifecycle candidate](docs/CONSUMER-LIFECYCLE-CANDIDATE.md). It does not promise
+cleanup on forced termination, crashes or every session-ending path. Keep FFB Off
+until the matched native shutdown and physical acceptance gates are complete.
 
 Logs land next to the game exe: `OutRun2006Tweaks.log` (the mod) and
 `OutRun2006Tweaks.ffb.log` (the DirectInput layer; `DBCE_FFB_LOG=0` silences it).

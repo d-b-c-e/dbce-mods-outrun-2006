@@ -1,3 +1,4 @@
+#include "consumer_lifecycle.hpp"
 #include <SDL3/SDL.h>
 #include <unordered_map>
 #include <vector>
@@ -595,10 +596,14 @@ private:
 	}
 
 public:
-	~InputManager()
+	void finalizeOwnedControllers()
 	{
 		for (auto controller : controllers)
 			SDL_CloseGamepad(controller);
+        controllers.clear();
+        primaryControllerIndex = -1;
+        // Retain the SDL wrapper around the borrowed game HWND until process
+        // termination. Do not destroy the game's window or call global SDL_Quit.
 	}
 	bool functionKeyBound(int virtualKey)
 	{
@@ -1183,23 +1188,36 @@ public:
 
 	friend class InputBindingsUI;
 
-	static InputManager instance;
+	static InputManager& instance;
 };
-InputManager InputManager::instance;
+// No SDL_CloseGamepad calls from a static destructor under loader lock.
+InputManager& InputManager::instance = *new InputManager;
+
+void InputManager_FinalizeForExit()
+{
+    // The shared consumer gate already drained every manager/UI entry point.
+    InputManager::instance.finalizeOwnedControllers();
+}
 
 void InputManager_Update()
 {
+    ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+    if (!lease) return;
 	if (Settings::UseNewInput)
 		InputManager::instance.update();
 }
 
 bool InputManager_FunctionKeyBound(int virtualKey)
 {
+    ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+    if (!lease) return false;
 	return Settings::UseNewInput && InputManager::instance.functionKeyBound(virtualKey);
 }
 
 void InputManager_SetVibration(WORD left, WORD right)
 {
+    ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+    if (!lease) return;
 	InputManager::instance.setVibration(left, right);
 }
 
@@ -1385,6 +1403,8 @@ public:
 
 	void render(bool overlayEnabled) override
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		if (!Overlay::IsBindingDialogActive)
 			return;
 
@@ -1712,6 +1732,8 @@ class NewInputHook : public Hook
 	inline static SafetyHookInline SwitchOn_hook = {};
 	static int SwitchOn_dest(uint32_t switches)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return 0;
 		// HACK: keyboard has ESC bound to both start & B/return, only let game see Start press when in-game
 		if (InputManager::instance.lastInputSource() == InputSourceType::Keyboard)
 			if (switches == StartSwitchMask && *Game::current_mode != STATE_GAME)
@@ -1724,6 +1746,8 @@ class NewInputHook : public Hook
 	inline static SafetyHookInline SwitchNow_hook = {};
 	static int SwitchNow_dest(uint32_t switches)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return 0;
 		// HACK: keyboard has ESC bound to both start & B/return, only let game see Start press when in-game
 		if (InputManager::instance.lastInputSource() == InputSourceType::Keyboard)
 			if (switches == StartSwitchMask && *Game::current_mode != STATE_GAME)
@@ -1735,6 +1759,8 @@ class NewInputHook : public Hook
 	inline static SafetyHookInline GetVolume_hook = {};
 	static int GetVolume_dest(ADChannel volumeId)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return 0;
 		int result = InputManager::instance.GetVolume(volumeId);
 		if (Settings::FixFullPedalChecks) // TODO: might not be needed now that we ceil the result?
 		{
@@ -1748,6 +1774,8 @@ class NewInputHook : public Hook
 	inline static SafetyHookInline GetVolumeOld_hook = {};
 	static int GetVolumeOld_dest(ADChannel volumeId)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return 0;
 		int result = InputManager::instance.GetVolumeOld(volumeId);
 		if (Settings::FixFullPedalChecks) // TODO: might not be needed now that we ceil the result?
 		{
@@ -1761,12 +1789,16 @@ class NewInputHook : public Hook
 	inline static SafetyHookInline VolumeSwitch_hook = {};
 	static int VolumeSwitch_dest(ADChannel volumeId)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return 0;
 		return VolumeSwitch_hook.ccall<int>(volumeId);
 	}
 
 	inline static SafetyHookMid WindowInit_hook = {};
 	static void WindowInit_dest(SafetyHookContext& ctx)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		InputManager::instance.init((HWND)ctx.ebp);
 	}
 

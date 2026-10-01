@@ -28,6 +28,7 @@
 #include "force_profile.h" // shared force model + versioned tuning profiles
 #include "overlay/overlay.hpp"
 #include "wheel_ui_snapshot.hpp"
+#include "consumer_lifecycle.hpp"
 
 // External vibration data from hooks_forcefeedback.cpp
 extern float VibrationLeftMotor;
@@ -260,6 +261,8 @@ namespace Telemetry
 
 	void SetEnabled(bool enabled)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		Settings::TelemetryEnabled = enabled;
 		if (!enabled)
 		{
@@ -272,6 +275,8 @@ namespace Telemetry
 
 	const char* UiStatus()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return "Stopped for game exit";
 		if (!Settings::TelemetryEnabled) return "Off";
 		if (lastSendFailed) return "Unavailable - UDP send failed. See Help for the log.";
 		if (lastSendTick && GetTickCount() - lastSendTick < 1000) return "Sending (receiver not confirmed)";
@@ -307,7 +312,7 @@ namespace FFB
 	static bool periodicsActive = false;
 
 	// Panic flag: once set (process exit path), no further DI output is issued
-	static volatile bool panicStopped = false;
+	static bool panicStopped = false;
 
 	// The shared force model, when FFBProfile names one.
 	//
@@ -331,7 +336,7 @@ namespace FFB
 	static uint32_t sharedPrevGear = 0;
 
 	// Watchdog: timestamp of last Update() call for staleness detection
-	static volatile DWORD lastUpdateTick = 0;
+	static DWORD lastUpdateTick = 0;
 
 	// Previous frame state for edge detection
 	static uint32_t prevGear = 0;
@@ -419,6 +424,8 @@ namespace FFB
 
 	static void SetConstantForce(LONG magnitude)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease || !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return;
 		if (!ffbLoaded || panicStopped)
 			return;
 		magnitude = std::clamp(magnitude, (LONG)-10000, (LONG)10000);
@@ -436,6 +443,8 @@ namespace FFB
 	// than 5% and period less than 10%, and recreates a slot whose handle died.
 	static void UpdatePeriodic(int slot, float magnitude01, float freqHz)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease || !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return;
 		if (slot < 0 || !ffbLoaded || panicStopped)
 			return;
 		float mag = std::clamp(magnitude01, 0.0f, 1.0f) * StrengthScale();
@@ -443,31 +452,11 @@ namespace FFB
 			(int)(std::clamp(freqHz, 1.0f, 100.0f) * 1000.0f));
 	}
 
-	// ---------- Exit-path guards (fixes exit stuck-force) ----------
-
-	// Emergency zero-torque for process exit. The ordering that matters - zero,
-	// stop, STOPALL, actuators off, RESET, unacquire, and only then restore
-	// autocentre, which may only be written on an unacquired device - is inside
-	// the DLL. What still matters here is WHEN: while the game window exists.
-	// By DLL_PROCESS_DETACH the OS has force-unacquired the exclusive device and
-	// none of it reaches the wheel, which is exactly how the stuck-force-after-
-	// Alt+F4 bug happened.
-	void PanicStop()
-	{
-		if (panicStopped)
-			return;
-		panicStopped = true;   // stop Update()/watchdog issuing anything further
-
-		if (!ffbLoaded)
-			return;
-
-		spdlog::info("FFB: PanicStop -- zeroing forces before window teardown");
-		ffb.PanicStop();
-	}
-
 	// Zero all force output without tearing anything down (Alt-Tab, menus, watchdog)
 	void ZeroAllForces()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		if (!initialized || panicStopped)
 			return;
 		if (prevConstantLevel != 0)
@@ -480,60 +469,11 @@ namespace FFB
 		}
 	}
 
-	// WndProc subclass: WM_CLOSE arrives on the game's main thread BEFORE the
-	// window is destroyed (Alt+F4 -> WM_SYSCOMMAND/SC_CLOSE -> WM_CLOSE), so the
-	// device is still acquirable and the zero-force actually lands on the wheel.
-	static const UINT_PTR FFB_SUBCLASS_ID = 0x0FFB;
-
-	static LRESULT CALLBACK ExitGuardSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
-		LPARAM lParam, UINT_PTR /*uIdSubclass*/, DWORD_PTR /*dwRefData*/)
-	{
-		switch (uMsg)
-		{
-		case WM_CLOSE:
-		case WM_DESTROY:
-		case WM_QUERYENDSESSION:
-			PanicStop();
-			break;
-		case WM_ACTIVATEAPP:
-			if (wParam == FALSE)
-				ZeroAllForces(); // don't hold torque while Alt-Tabbed
-			break;
-		}
-		return DefSubclassProc(hWnd, uMsg, wParam, lParam);
-	}
-
-	// Belt-and-braces for exit paths that skip WM_CLOSE entirely
-	static SafetyHookInline ExitProcess_hk = {};
-	static void WINAPI ExitProcess_Hooked(UINT uExitCode)
-	{
-		PanicStop();
-		ExitProcess_hk.stdcall<void>(uExitCode);
-	}
-
-	static void InstallExitGuards()
-	{
-		HWND hwnd = Game::GameHwnd();
-		if (hwnd && SetWindowSubclass(hwnd, ExitGuardSubclassProc, FFB_SUBCLASS_ID, 0))
-			spdlog::info("FFB: Exit guard installed (WndProc subclass)");
-		else
-			spdlog::warn("FFB: SetWindowSubclass failed -- exit cleanup relies on ExitProcess hook only");
-
-		if (!ExitProcess_hk)
-		{
-			auto* exitProc = GetProcAddress(GetModuleHandleA("kernel32.dll"), "ExitProcess");
-			if (exitProc) ExitProcess_hk = safetyhook::create_inline(exitProc, ExitProcess_Hooked);
-			if (ExitProcess_hk)
-				spdlog::info("FFB: Exit guard installed (ExitProcess hook)");
-			else
-				spdlog::warn("FFB: ExitProcess hook failed");
-		}
-	}
-
 	// Deferred initialization -- called from Update() on first game tick,
 	// because DirectInput needs a valid HWND.
 	static bool LoadApi()
 	{
+		if (!ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return false;
 		if (ffbLoaded) return true;
 
 		// Loaded at runtime from beside this DLL, never imported: a missing
@@ -547,7 +487,14 @@ namespace FFB
 			WheelFfb_Unload(&ffb);
 			return false;
 		}
-		ffbLoaded = true;
+        // Establish process lifetime outside loader lock, before any ABI call.
+        HMODULE pinned = nullptr;
+        if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+            reinterpret_cast<LPCWSTR>(ffb.module), &pinned)) {
+            WheelFfb_Unload(&ffb); // No acquisition or native callback has occurred.
+            return false;
+        }
+        ffbLoaded = true;
 
 		// Keep the DLL's own log beside the game, with everything else worth
 		// reading after a bad session. Set DBCE_FFB_LOG=0 to silence it.
@@ -579,6 +526,8 @@ namespace FFB
 
 	void RefreshUiDevices()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		uiDevices.clear();
 		if (!LoadApi()) { deviceError = "WheelFfb.dll is missing or incompatible"; return; }
 		const int count = ffb.EnumerateDevices();
@@ -596,8 +545,10 @@ namespace FFB
 		if (!initialized) { initAttempted = false; deviceError.clear(); }
 	}
 
-	void SelectionChanged()
+	static void ApplySelectionChanged()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		ZeroAllForces();
 		if (ffbLoaded && initialized) ffb.FreeDirectInput();
 		initialized = false;
@@ -612,8 +563,37 @@ namespace FFB
 		useSharedModel = false;
 	}
 
+    static bool selectionPending = false;
+    void LifecycleIdle()
+    {
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime(), true);
+        if (!lease) return;
+        if (ConsumerLifecycle::Runtime().Current() == ConsumerLifecycle::Gate::Phase::Paused) {
+            if (initialized && ffbLoaded && !panicStopped) ffb.ZeroForces();
+            prevConstantLevel = prevStructLevel = 0;
+            warmupFrames = 0;
+        } else if (selectionPending) {
+            selectionPending = false;
+            ApplySelectionChanged();
+        }
+    }
+    void SelectionChanged()
+    {
+        const bool reentrant = ConsumerLifecycle::Gate::Reentrant();
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
+        if (reentrant) {
+            selectionPending = true;
+            ConsumerLifecycle::Runtime().DeferUntilIdle();
+            return;
+        }
+        ApplySelectionChanged();
+    }
+
 	std::string UiDeviceLabel()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return "Stopped for game exit";
 		if (Settings::FFBDeviceGuid == "steering")
 		{
 			const auto input = DInputRemap::ReadUiSnapshot();
@@ -627,6 +607,8 @@ namespace FFB
 
 	bool DeferredInit()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return false;
 		if (initAttempted) return initialized;
 		initAttempted = true;
 		if (!LoadApi()) { deviceError = "WheelFfb.dll is missing or incompatible"; return false; }
@@ -673,6 +655,8 @@ namespace FFB
 			spdlog::info("FFB: force-feedback device [{}]: '{}'", i, name);
 		}
 
+        if (ConsumerLifecycle::Runtime().Current() != ConsumerLifecycle::Gate::Phase::Running ||
+            !ConsumerLifecycle::ReadyForActuator(hwnd)) return false;
 		if (!ffb.InitDirectInput((int)(INT_PTR)hwnd))
 		{
 			deviceError = "Selected wheel is unavailable or refused output. Check it, then Refresh devices";
@@ -680,6 +664,11 @@ namespace FFB
 				(unsigned)ffb.GetLastHResult());
 			return false;
 		}
+        // Init may pump a reentrant close/session request. Mark the handle as
+        // owned for deferred silence, but never start output after that request.
+        initialized = true;
+        if (ConsumerLifecycle::Runtime().Current() != ConsumerLifecycle::Gate::Phase::Running ||
+            !ConsumerLifecycle::ReadyForActuator(hwnd)) return false;
 		ffb.StartEffect();
 
 		// Hardware periodics for road texture and tyre slip. -1 from either means
@@ -687,7 +676,11 @@ namespace FFB
 		// fallback below carries the vibration instead.
 		if (Settings::FFBUsePeriodicEffects)
 		{
+            if (ConsumerLifecycle::Runtime().Current() != ConsumerLifecycle::Gate::Phase::Running ||
+                !ConsumerLifecycle::ReadyForActuator(hwnd)) return false;
 			slotRoadTexture = ffb.CreatePeriodicEffect(25);
+            if (ConsumerLifecycle::Runtime().Current() != ConsumerLifecycle::Gate::Phase::Running ||
+                !ConsumerLifecycle::ReadyForActuator(hwnd)) return false;
 			slotTireSlip = ffb.CreatePeriodicEffect(40);
 			periodicsActive = (slotRoadTexture >= 0 && slotTireSlip >= 0);
 			if (periodicsActive)
@@ -726,11 +719,6 @@ namespace FFB
 			spdlog::info("FFB: using the built-in (legacy) force model");
 		}
 
-		// Exit guards: zero the wheel while the window still exists. Kept here
-		// rather than using the DLL's own InstallExitGuards, because this one
-		// also hooks ExitProcess for the paths that never see WM_CLOSE.
-		InstallExitGuards();
-
 		initialized = true;
 		deviceError.clear();
 		spdlog::info("FFB: Initialization complete (WheelFfb)");
@@ -761,6 +749,8 @@ namespace FFB
 	// been called recently (handles menu transitions where GamePlCar_Ctrl stops).
 	void CheckWatchdog()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		if (!initialized || !ffbLoaded || panicStopped)
 			return;
 
@@ -779,6 +769,8 @@ namespace FFB
 
 	void Update(EVWORK_CAR* car)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		if (!car || panicStopped)
 			return;
 
@@ -1249,29 +1241,36 @@ namespace FFB
 		prevSpeed = speed;
 	}
 
-	void Shutdown()
-	{
-		Telemetry::Shutdown();
+    // Only the committed outer-loop boundary may call this after leases drain.
+    // Native worker completion remains a matched-toolkit release gate.
+    void FinalizeForExit()
+    {
+        panicStopped = true;
+        if (ffbLoaded) { ffb.PanicStop(); ffb.FreeDirectInput(); }
+        initialized = false;
+        periodicsActive = false;
+        slotRoadTexture = slotTireSlip = -1;
+        prevConstantLevel = prevStructLevel = 0;
+        delete sharedModel; sharedModel = nullptr;
+        delete sharedShaper; sharedShaper = nullptr;
+        useSharedModel = false;
+        Telemetry::Shutdown();
+        // Successful native module stays pinned; never hot-unload it.
+    }
 
-		if (!initialized)
-			return;
-
-		spdlog::info("FFB: Shutting down...");
-
-		// This runs from DLL_PROCESS_DETACH, under the loader lock. PanicStop is
-		// the part that must happen and is a no-op if an exit guard already ran.
-		// Nothing else is torn down deliberately: FreeLibrary from DllMain is
-		// forbidden, and releasing COM objects here is what used to fault
-		// (0xC0000005 on all three effects) and silently skip the autocentre
-		// restore. The process is exiting; the OS reclaims the rest.
-		PanicStop();
-
-		initialized = false;
-		spdlog::info("FFB: Shutdown complete");
-	}
+    void SilenceForLifecycle()
+    {
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime(), true);
+        if (!lease || !initialized || !ffbLoaded || panicStopped) return;
+        ffb.ZeroForces();
+        prevConstantLevel = prevStructLevel = 0;
+        warmupFrames = 0;
+    }
 
 	const char* UiStatus()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return "Stopped for game exit";
 		if (!Settings::DirectInputFFB) return "Off - choose On to resume";
 		if (panicStopped) return "Stopped for game exit";
 		if (!deviceError.empty()) return deviceError.c_str();

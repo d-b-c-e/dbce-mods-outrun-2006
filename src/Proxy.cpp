@@ -1336,11 +1336,7 @@ bool on_attach(HMODULE ourModule)
 
 void on_detach()
 {
-    if (!origModule)
-        return;
-
-    FreeLibrary(origModule);
-    origModule = nullptr;
+    // Retain the system proxy reference for process lifetime.
 }
 
 };

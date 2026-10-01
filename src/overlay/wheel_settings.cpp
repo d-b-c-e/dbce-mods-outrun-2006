@@ -12,6 +12,7 @@
 #include "resource.h"
 #include "overlay.hpp"
 #include "wheel_settings.hpp"
+#include "consumer_lifecycle.hpp"
 #include "wheel_settings_policy.hpp"
 #include "wheel_ui_snapshot.hpp"
 #include "wheel_input_gate.hpp"
@@ -140,6 +141,8 @@ static bool ExistingShortcutConflict(int key)
 }
 void HandleShortcuts()
 {
+    ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+    if (!lease) return;
     const bool focused = GetForegroundWindow() == Game::GameHwnd();
     if (!focused) return;
     const auto stop = ShortcutKey(Settings::WheelStopKey);
@@ -947,6 +950,8 @@ public:
     void init() override {}
     void render(bool) override
     {
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
         using namespace WheelSettingsUi;
         if (!Overlay::WheelSettingsVisible) return;
         Overlay::IsActive = true;

@@ -7,6 +7,10 @@
 
 IDirectInput8A* g_RealDirectInput8 = nullptr;
 Hook::Hook() {}
+static int consumerReleases = 0, consumerUnacquires = 0, borrowedCalls = 0;
+static ULONG __stdcall FakeRelease(void*) { ++consumerReleases; return 0; }
+static HRESULT __stdcall FakeUnacquire(void*) { ++consumerUnacquires; return S_OK; }
+static ULONG __stdcall BorrowedRelease(void*) { ++borrowedCalls; return 0; }
 
 int main()
 {
@@ -176,5 +180,20 @@ int main()
     assert(extraInputs.contains(pedalGuidB)); // Optional binding retains its shared handle.
     Settings::DIAuxDeviceGuid.clear(); Settings::DIShifterDeviceGuid.clear();
     ReleaseUnusedUiDevices(); assert(extraInputs.empty());
-    std::cout << "PASS: actual axis readers, legacy opt-out preservation (144 cases), calibrated endpoints/center/partial/clamp/invert/clear, invalid range/ambiguity, independent/shared USB pedal identity, missing/refused identity neutral, reconnect and unused-slot cleanup. No device calls.\n";
+    // Minimal memory-only COM vtables exercise the production release path.
+    void* ownedTable[32]{}; ownedTable[2]=reinterpret_cast<void*>(FakeRelease); ownedTable[8]=reinterpret_cast<void*>(FakeUnacquire);
+    void* borrowedTable[32]{}; borrowedTable[2]=reinterpret_cast<void*>(BorrowedRelease);
+    void** ownedObject=ownedTable; void** borrowedObject=borrowedTable;
+    auto* owned=reinterpret_cast<IDirectInputDevice8A*>(&ownedObject);
+    primary.device=shifter.device=aux.device=owned; // alias must not release twice
+    extraInputs[oldPrimaryGuid]=std::make_unique<DeviceSlot>(); extraInputs[oldPrimaryGuid]->device=owned;
+    g_RealDirectInput8=reinterpret_cast<IDirectInput8A*>(&borrowedObject);
+    IDirectInput8A* borrowed=g_RealDirectInput8; Game::DirectInput8_ptr=&borrowed;
+    assert(ConsumerLifecycle::Runtime().ClaimFinalization()); FinalizeForExit(); ConsumerLifecycle::Runtime().CompleteFinalization();
+    assert(consumerReleases==1 && consumerUnacquires==1 && borrowedCalls==0);
+    assert(!primary.device && !shifter.device && !aux.device && extraInputs.empty());
+    assert(!ReadUiSnapshot().connected && GetTelemetryAccel()==-1 && !GetPrimaryDevice());
+    RefreshUiInputDevices(); ReleaseUnusedUiDevices(); AdoptPrimaryInput(oldPrimaryGuid);
+    assert(consumerReleases==1 && borrowedCalls==0);
+    std::cout << "PASS: actual axis readers and 144 legacy cases, calibration/pedal identities/reconnect; production finalization releases aliased consumer COM handles once, preserves borrowed game/proxy handles, and rejects stopped input/UI/telemetry. Memory-only fake COM; no device calls.\n";
 }

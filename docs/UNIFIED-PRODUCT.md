@@ -34,8 +34,11 @@ installer commits remain distinct for repacks; do not relabel historical DLLs
 as rebuilt. Preserve existing tags, ZIPs, backup receipts and toolkit pins:
 v0.8.0 baseline and v0.13.0 native/header override (native 0.6.0).
 `product.json` is metadata, not a runtime enable switch or support certification.
-Legacy schema-1 packages without it remain installable. New packages hash and
-validate it before runtime replacement. No new public release/version is claimed.
+Legacy schema-1 packages without it remain installable. New schema-2 packages
+hash every shipped file recursively, validate required third-party notices and
+provenance before runtime replacement, and record distribution blockers.
+Normal packaging rejects unresolved provenance; -ReviewOnly permits a marked
+local candidate only. See third-party/README.md. No public release is claimed.
 
 ## Review gates
 

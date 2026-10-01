@@ -87,7 +87,14 @@ if ($Action -eq 'Restore') {
 }
 $package = (Resolve-Path -LiteralPath $PackageDirectory).Path
 $manifest = Get-Content -LiteralPath (Join-Path $package 'package-manifest.json') -Raw | ConvertFrom-Json
-if ($manifest.schemaVersion -ne 1 -or $manifest.architecture -ne 'x86') { throw 'Unsupported package manifest.' }
+if ($manifest.schemaVersion -notin 1,2 -or $manifest.architecture -ne 'x86') { throw 'Unsupported package manifest.' }
+if ($manifest.schemaVersion -eq 2) {
+    $validatorEntry = @($manifest.files | Where-Object name -eq 'Validate-Package.ps1')
+    $validatorPath = Join-Path $package 'Validate-Package.ps1'
+    if ($validatorEntry.Count -ne 1 -or -not (Test-Path -LiteralPath $validatorPath) -or (Hash $validatorPath) -ne $validatorEntry[0].sha256) { throw 'Package hash mismatch: Validate-Package.ps1' }
+    . $validatorPath
+    Assert-PackageInventory $package
+}
 # Additive metadata: historical schema-1 packages remain compatible. New
 # descriptors must match their manifest and game before any runtime replacement.
 $productEntries = @($manifest.files | Where-Object name -eq 'product.json')

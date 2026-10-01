@@ -1,0 +1,299 @@
+{
+  "schemaVersion": 1,
+  "productId": "outrun2006-c2c-pc",
+  "runtimeSourceCommit": "7969acafed206295a7e47b62ed626c35e241eb51",
+  "legalClearance": false,
+  "distributionBlockers": [
+    "Exact upstream revision/license relationship for SDL-vendored Microsoft DirectX headers needs review; declarations and official MIT license blob are included, but header origin is not guessed."
+  ],
+  "components": [
+    {
+      "id": "toolkit",
+      "revision": "v0.8.0 baseline; v0.13.0 override dd0ef20ad0cdaccc7a67f10a707dbd2a27a6efe9",
+      "source": "lib/toolkit; pinned LICENSE blob aa489132a7f0fad4450b594e49cfea0b8f9b3f4c",
+      "license": "MIT",
+      "notices": [
+        {
+          "path": "third-party/notices/toolkit-MIT.txt",
+          "sha256": "b2212c476244c444d6b7e804ac89c038a88b5c9288a087b30a2343d2dc3021db"
+        }
+      ]
+    },
+    {
+      "id": "ini-cpp",
+      "revision": "vendored blob bbfa74698ab0e925f887a3e72405e45598ebabe5; upstream 138ae81911379e79bf1a9be86726cb77af4a57b0",
+      "source": "external/ini-cpp/ini/ini.h; import commit 2242d9b86378e678b422075d004b0215a1fad7fa",
+      "license": "BSD-3-Clause modified derivative",
+      "notices": [
+        {
+          "path": "third-party/notices/ini-license.txt",
+          "sha256": "486aa9c58fca886e11c966ee433a1b985e4b0be5027d32eca1a241aa296022da"
+        }
+      ]
+    },
+    {
+      "id": "proggyclean",
+      "revision": "font blob 0270cdfe3caa811e1b252cdcc5b179989c1b8ad6; author tree 139ec08a38096161291792313ef5803fc4f0e37b",
+      "source": "external/imgui/imgui_draw.cpp; author LICENSE blob 1dfb54d9d6f5106e78a91330791a66f948a54305",
+      "license": "MIT",
+      "notices": [
+        {
+          "path": "third-party/notices/proggy-license.txt",
+          "sha256": "fe61d069df303c697e04200f5f8232c2cb09dd3572f4357b323469f7d592d142"
+        }
+      ]
+    },
+    {
+      "id": "imgui",
+      "revision": "18e5d769fd7fc48b809ee3b8f6bef6906289251d",
+      "source": "external/imgui/LICENSE.txt",
+      "license": "MIT",
+      "notices": [
+        {
+          "path": "third-party/notices/imgui-MIT.txt",
+          "sha256": "44abf9b2498d127928abb6e23b4cda06f6ec3577b34b0c9d4d0672f38b3d6293"
+        }
+      ]
+    },
+    {
+      "id": "stb",
+      "revision": "within ImGui 18e5d769fd7fc48b809ee3b8f6bef6906289251d",
+      "source": "external/imgui/imstb_{textedit,rectpack,truetype}.h trailing license blocks",
+      "license": "MIT/Public Domain alternatives; retain both",
+      "notices": [
+        {
+          "path": "third-party/notices/stb-textedit.txt",
+          "sha256": "79058ef78fa76316a78499d99fb301e5565cfb91f099ca6853e413060b48c790"
+        },
+        {
+          "path": "third-party/notices/stb-rectpack.txt",
+          "sha256": "79058ef78fa76316a78499d99fb301e5565cfb91f099ca6853e413060b48c790"
+        },
+        {
+          "path": "third-party/notices/stb-truetype.txt",
+          "sha256": "79058ef78fa76316a78499d99fb301e5565cfb91f099ca6853e413060b48c790"
+        }
+      ]
+    },
+    {
+      "id": "spdlog",
+      "revision": "a3a0c9d66386962fcaf0178fcae03ac77c1e0257",
+      "source": "external/spdlog/LICENSE",
+      "license": "MIT",
+      "notices": [
+        {
+          "path": "third-party/notices/spdlog-MIT.txt",
+          "sha256": "4ccecab18d1ff0b61174fe3d6c430541625d3ddb865b0d5887db296f883c76e7"
+        }
+      ]
+    },
+    {
+      "id": "fmt",
+      "revision": "10.2.1 within spdlog a3a0c9d66386962fcaf0178fcae03ac77c1e0257",
+      "source": "external/spdlog/include/spdlog/fmt/bundled/fmt.license.rst",
+      "license": "MIT with object-code exception",
+      "notices": [
+        {
+          "path": "third-party/notices/fmt-MIT.txt",
+          "sha256": "4e79fcc686dacf1a83eeddf1813ce28bbac5bd67a8b067d740c8fcd8c8405e1d"
+        }
+      ]
+    },
+    {
+      "id": "modutils",
+      "revision": "58f3f475e6e84dc97f5e2c171e21b928c2c366ab",
+      "source": "external/ModUtils/LICENSE",
+      "license": "MIT",
+      "notices": [
+        {
+          "path": "third-party/notices/modutils-MIT.txt",
+          "sha256": "7cb9ec44029360441b963ea8158d6395aa56fb675be48a63e1297b940d8413a9"
+        }
+      ]
+    },
+    {
+      "id": "xxhash",
+      "revision": "dbea33e47e7c0fe0b7c8592cd931c7430c1f130d",
+      "source": "external/xxHash/LICENSE",
+      "license": "BSD-2-Clause",
+      "notices": [
+        {
+          "path": "third-party/notices/xxhash-BSD.txt",
+          "sha256": "6ffedbc0f7878612d2b23589f1ff2ab15633e1df7963a5d9fc750ec5500c7e7a"
+        }
+      ]
+    },
+    {
+      "id": "ixwebsocket",
+      "revision": "fb5a1f06a133ae8632ea92ec2563a84e904b674d",
+      "source": "external/IXWebSocket/LICENSE.txt",
+      "license": "BSD-3-Clause",
+      "notices": [
+        {
+          "path": "third-party/notices/ixwebsocket-BSD.txt",
+          "sha256": "5171bcddced934a3bf578b39c330c39be367620bd08011dd2b52b8fca18996e9"
+        }
+      ]
+    },
+    {
+      "id": "ixbase64",
+      "revision": "within IXWebSocket fb5a1f06a133ae8632ea92ec2563a84e904b674d",
+      "source": "external/IXWebSocket/ixwebsocket/IXBase64.h embedded comment",
+      "license": "MIT",
+      "notices": [
+        {
+          "path": "third-party/notices/ixbase64-MIT.txt",
+          "sha256": "de867fad0dd7916e1f4f0e87eb76ac623ee64475bd2ce05be24a11cb1f8fcaa2"
+        }
+      ]
+    },
+    {
+      "id": "miniz",
+      "revision": "C blob 8d0032f9e4fb858352a6de1c25bca83ec8d5f17e; H blob 9fcfffcc8cd7ac9e9d9af271cffdbc8d0a58a9ea",
+      "source": "external/miniz/miniz.c embedded comment",
+      "license": "MIT source notice; header public-domain assertion not used to omit MIT",
+      "notices": [
+        {
+          "path": "third-party/notices/miniz-MIT.txt",
+          "sha256": "5a55bfff5354722d0e1c3978c3910efa89721516311d975123ed76185766b045"
+        }
+      ]
+    },
+    {
+      "id": "safetyhook",
+      "revision": "629558c64009a7291ba6ed5cfb49187086a27a47",
+      "source": "build/_deps/safetyhook-src/LICENSE",
+      "license": "BSL-1.0 object-code exception",
+      "notices": [
+        {
+          "path": "third-party/notices/safetyhook-Boost.txt",
+          "sha256": "36266a8fd073568394cb81cdb2b124f7fdae2c64c1a7ed09db34b4d22efa2951"
+        }
+      ]
+    },
+    {
+      "id": "zydis",
+      "revision": "v4.0.0 / 1ba75aeefae37094c7be8eba07ff81d4fe0f1f20",
+      "source": "build/_deps/zydis-src/LICENSE",
+      "license": "MIT",
+      "notices": [
+        {
+          "path": "third-party/notices/zydis-MIT.txt",
+          "sha256": "240802d87ae8054d3cba8cd337332a6741894c65a0c2ce444c4c43ead494a1a6"
+        }
+      ]
+    },
+    {
+      "id": "zycore",
+      "revision": "1401fb85ac313f6605ec795c52bf99ea3f292a69",
+      "source": "pinned Zydis dependencies/zycore entry; LICENSE blob 4d9069aee5095035501934ae4a776556080b0f14",
+      "license": "MIT",
+      "notices": [
+        {
+          "path": "third-party/notices/zycore-license.txt",
+          "sha256": "28bc372dfae08082fe25d9b8a2c04d7497f67129f112e82712f42632ed04d230"
+        }
+      ]
+    },
+    {
+      "id": "ogg",
+      "revision": "v1.3.5 / e1774cd77f471443541596e09078e78fdc342e4f",
+      "source": "build/_deps/ogg-src/COPYING",
+      "license": "BSD-3-Clause",
+      "notices": [
+        {
+          "path": "third-party/notices/ogg-BSD.txt",
+          "sha256": "29460b3b44148114c28cc2480737368428747e68374d16cb8d910949ded03d19"
+        }
+      ]
+    },
+    {
+      "id": "flac",
+      "revision": "1.4.3 / 28e4f0528c76b296c561e922ba67d43751990599",
+      "source": "build/_deps/flac-src/COPYING.Xiph; codec library only",
+      "license": "BSD-3-Clause",
+      "notices": [
+        {
+          "path": "third-party/notices/flac-BSD.txt",
+          "sha256": "0e672f47386fe1552ae164d518c780c01cab191dbf3e842b8d1d074f08cb7087"
+        }
+      ]
+    },
+    {
+      "id": "miniupnpc",
+      "revision": "miniupnpd_2_3_7 / b9f21a9cfe9d90afbd87dcff290a8dc8c078409b",
+      "source": "build/_deps/miniupnpc-src/LICENSE",
+      "license": "BSD-3-Clause",
+      "notices": [
+        {
+          "path": "third-party/notices/miniupnpc-BSD.txt",
+          "sha256": "eaae06e6e0d653af7c6f2b3b5e2363f1959b8b9209023bf78208754defcd2a2c"
+        }
+      ]
+    },
+    {
+      "id": "jsoncpp",
+      "revision": "1.9.6 / 89e2973c754a9c02a49974d839779b151e95afd6",
+      "source": "build/_deps/jsoncpp-src/LICENSE",
+      "license": "Public Domain with MIT fallback",
+      "notices": [
+        {
+          "path": "third-party/notices/jsoncpp-license.txt",
+          "sha256": "ecf1a272af5d660ed0054701b5662e6a9f208b56502dc67983fce60a657d58b2"
+        }
+      ]
+    },
+    {
+      "id": "sdl",
+      "revision": "preview-3.1.8 / 22422f7748d5128135995ed34c8f8012861c7332",
+      "source": "build/_deps/sdl-src/LICENSE.txt",
+      "license": "Zlib",
+      "notices": [
+        {
+          "path": "third-party/notices/sdl-zlib.txt",
+          "sha256": "6b8da877f518bae3e261b2613754cc97e916f20001c5499b4cea6680ac6d1e1b"
+        }
+      ]
+    },
+    {
+      "id": "hidapi",
+      "revision": "within SDL 22422f7748d5128135995ed34c8f8012861c7332",
+      "source": "build/_deps/sdl-src/src/hidapi/LICENSE.txt and LICENSE-bsd.txt",
+      "license": "BSD alternative selected; choice statement retained",
+      "notices": [
+        {
+          "path": "third-party/notices/hidapi-choice.txt",
+          "sha256": "ece65294d852f2f32a291ed1c2b6cddd57a5630e37626aa02c80cd62eed6f222"
+        },
+        {
+          "path": "third-party/notices/hidapi-BSD.txt",
+          "sha256": "b1a506483de4fc32a73568370aa248bf6c5f820b5e2891ca3f29b8844ea6bf33"
+        }
+      ]
+    },
+    {
+      "id": "yuv2rgb",
+      "revision": "within SDL 22422f7748d5128135995ed34c8f8012861c7332",
+      "source": "build/_deps/sdl-src/src/video/yuv2rgb/LICENSE",
+      "license": "BSD-3-Clause",
+      "notices": [
+        {
+          "path": "third-party/notices/yuv2rgb-BSD.txt",
+          "sha256": "577769384d44f033ec1ccc28393f25055981fc3aecfeab87c8ed44810473277d"
+        }
+      ]
+    },
+    {
+      "id": "directx-headers",
+      "revision": "within SDL 22422f7748d5128135995ed34c8f8012861c7332; official license blob 44378268be1b87777827ab64b1ea2d98e808850e",
+      "source": "SDL src/video/directx/d3d12*.h declare MIT; official microsoft/DirectX-Headers LICENSE",
+      "license": "MIT declaration; upstream header revision unresolved",
+      "notices": [
+        {
+          "path": "third-party/notices/directx-MIT.txt",
+          "sha256": "7c77a44a8acd9b41fdc209864a8016b3d430b5d0e09309818d5b7444336df744"
+        }
+      ]
+    }
+  ]
+}

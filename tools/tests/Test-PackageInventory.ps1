@@ -32,6 +32,7 @@ function Reject([string]$Label, [scriptblock]$Mutation, [string]$Expected) {
     catch { $failed = $_.Exception.Message -like $Expected }
     if (-not $failed -or (Test-Path -LiteralPath (Join-Path $game '.wheel-settings-backups')) -or (Test-Path -LiteralPath (Join-Path $game 'dinput8.dll'))) { throw "Installer refusal changed state: $Label" }
     $script:checks += 2
+    return $package
 }
 Reject 'nested-tamper' { param($p,$m) [IO.File]::AppendAllText((Join-Path $p 'provenance/VERSION'),'tamper') } 'Package hash mismatch: provenance/VERSION'
 Reject 'missing-notice' { param($p,$m) Remove-Item -LiteralPath (Join-Path $p 'third-party/notices/ogg-BSD.txt') } 'Missing required package file: third-party/notices/ogg-BSD.txt'
@@ -52,6 +53,46 @@ Reject 'rehash-notice-tamper' {
     [IO.File]::AppendAllText($path,'tamper')
     ($m.files | Where-Object name -eq 'third-party/notices/ogg-BSD.txt').sha256=(Get-FileHash -LiteralPath $path).Hash.ToLowerInvariant()
 } 'Notice hash mismatch: third-party/notices/ogg-BSD.txt'
+# Rehashed/cataloged private paths must fail regardless of reviewOnly. Also
+# exercise the real packaging entry point: it must leave no output directory.
+foreach ($review in $true,$false) {
+    foreach ($privateName in 'captures/private-session.jsonl','roms/game.rom','owner-config.json','logs/runtime.log','third-party/notices/unknown.txt') {
+        $script:injectedName=$privateName
+        $script:injectedReview=$review
+        $label='private-'+$review+'-'+$privateName.Replace('/','-')
+        $p = Reject $label {
+            param($p,$m)
+            $file=Join-Path $p $script:injectedName
+            New-Item -ItemType Directory -Path (Split-Path -Parent $file) -Force | Out-Null
+            [IO.File]::WriteAllText($file,'private fixture; never real user data')
+            $m.reviewOnly=$script:injectedReview
+            # Model an attacker recataloging all metadata, including cleanliness.
+            $m.sourceDirty=$false
+            $m.files=@($m.files)+@([pscustomobject]@{name=$script:injectedName;sha256=(Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant()})
+        } ('Disallowed private or unknown package path: '+$privateName)
+        foreach ($reviewSwitch in $true,$false) {
+            $output=Join-Path $fixture ($label+'-output-'+$reviewSwitch)
+            $failed=$false
+            try { & (Join-Path $root 'tools/Package-WheelSettings.ps1') -RuntimePackageDirectory $p -OutputDirectory $output -ReviewOnly:$reviewSwitch | Out-Null }
+            catch { $failed=$_.Exception.Message -like 'Disallowed private or unknown package path:*' }
+            if (-not $failed -or (Test-Path -LiteralPath $output)) { throw "Packaging privacy refusal failed: $label" }
+            $script:checks++
+        }
+    }
+}
+$sourceFixture=Join-Path $fixture 'source-with-private-notice'
+New-Item -ItemType Directory -Path (Join-Path $sourceFixture 'tools') -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $root 'third-party') -Destination $sourceFixture -Recurse
+foreach($file in 'Package-WheelSettings.ps1','Validate-Package.ps1') { Copy-Item -LiteralPath (Join-Path $root ('tools/'+$file)) -Destination (Join-Path $sourceFixture 'tools') }
+[IO.File]::WriteAllText((Join-Path $sourceFixture 'third-party/notices/user.ini'),'private fixture')
+foreach($reviewSwitch in $true,$false) {
+    $output=Join-Path $fixture ('source-private-output-'+$reviewSwitch)
+    $failed=$false
+    try { & (Join-Path $sourceFixture 'tools/Package-WheelSettings.ps1') -RuntimePackageDirectory $source -OutputDirectory $output -ReviewOnly:$reviewSwitch | Out-Null }
+    catch { $failed=$_.Exception.Message -eq 'Disallowed private or unknown package path: third-party/notices/user.ini' }
+    if(-not $failed -or (Test-Path -LiteralPath $output)){throw 'Private source notice must fail before packaging output'}
+    $script:checks++
+}
 $index = Assert-ThirdPartyNotices $source
 if (@($index.distributionBlockers).Count -gt 0) {
     $failed=$false

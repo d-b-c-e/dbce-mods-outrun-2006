@@ -27,6 +27,13 @@ Distribution blockers must remain explicit in index.json if any source/license
 relationship is unresolved. Normal packaging rejects blockers. -ReviewOnly
 permits an explicitly marked local review artifact; it does not grant release.
 
+Schema-2 payload privacy is independently enforced by a source-owned exact path
+allowlist. Recataloging private captures, ROMs, settings, logs or unknown notice
+files cannot extend it, including with -ReviewOnly. The copied source notice tree
+and frozen schema-2 input are checked before output directory creation. Legacy
+schema-1 installer compatibility is retained without implying this new policy
+retroactively applies to old manifests.
+
 The actual Release link inputs include SDL, FLAC, Ogg, JsonCpp, MiniUPnPc,
 SafetyHook, Zydis/Zycore and spdlog, plus directly compiled source/header
 dependencies. Optional-code removal by the linker is not treated as grounds to

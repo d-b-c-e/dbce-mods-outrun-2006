@@ -46,7 +46,7 @@ v0.8.0 baseline and v0.13.0 native/header override (native 0.6.0).
 Legacy schema-1 packages without it remain installable. New schema-2 packages
 hash every shipped file recursively, validate required third-party notices and
 provenance before runtime replacement, and record distribution blockers.
-Normal packaging rejects unresolved provenance; -ReviewOnly permits a marked
+Normal packaging rejects outstanding distribution gates; -ReviewOnly permits a marked
 local candidate only. See third-party/README.md. No public release is claimed.
 
 ## Review gates
@@ -56,6 +56,13 @@ promotion. Native title confirmation failed historically on candidate and baseli
 physical driving, force and player-camera acceptance remain incomplete. Keep FFB
 Off. No game/device/display test, deployment or remote change is authorized by
 this source consistency milestone. Preserve F-Zero Deluxe's reservation.
+
+DirectX content provenance is verified; see third-party/index.json for upstream
+matching revision, SDL edits and license newline normalization. This factual
+finding does not complete the remaining acceptance gates. Shared toolkit v0.13
+shutdown ignores completion of a 500 ms watchdog wait before resource release;
+no failure reproduced. Physical FFB rollout remains held pending delayed-worker
+testing or fix and binary provenance review. No unattended FFB.
 
 At intake, runtime HEAD was cb0f0f1 on codex/ux-simple-settings-2026-09-16.
 Related Redux main was 5d2eb52, with five untracked owner files (INI and

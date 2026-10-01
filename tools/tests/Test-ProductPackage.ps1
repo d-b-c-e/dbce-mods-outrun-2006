@@ -31,7 +31,13 @@ $blockedOutput = Join-Path $fixture 'distribution-blocked'
 $failed = $false
 try { & (Join-Path $root 'tools/Package-WheelSettings.ps1') -RuntimePackageDirectory $runtime -OutputDirectory $blockedOutput | Out-Null }
 catch { $failed = $_.Exception.Message -like 'Distribution blocked:*' }
-if (-not $failed -or (Test-Path -LiteralPath $blockedOutput)) { throw 'Unresolved provenance must prevent normal package creation' }
+if (-not $failed -or (Test-Path -LiteralPath $blockedOutput)) { throw 'Outstanding acceptance/shutdown gates must prevent normal package creation' }
+$index = Get-Content -LiteralPath (Join-Path $out 'third-party/index.json') -Raw | ConvertFrom-Json
+$directx = @($index.components | Where-Object id -eq 'directx-headers')[0]
+if ($index.legalClearance -or $manifest.distributionReady -or @($index.distributionBlockers).Count -ne 2) { throw 'Remaining review gates or clearance status changed' }
+if (($index.distributionBlockers -join ' ') -match 'upstream.*unresolved|DirectX.*needs review') { throw 'Resolved factual DirectX gate retained' }
+if (($index.distributionBlockers -join ' ') -notmatch '500 ms' -or ($index.distributionBlockers -join ' ') -notmatch 'Physical driving') { throw 'Acceptance or shutdown gate lost' }
+if ($directx.provenance.status -ne 'verified content match; original importer checkout not claimed' -or $directx.provenance.licenseReceipt.byteIdentical -or $directx.provenance.licenseReceipt.retainedBytes -ne 1074) { throw 'DirectX content-match or license-normalization receipt lost' }
 $defaultResult = @(& (Join-Path $root 'tools/Package-WheelSettings.ps1') -RuntimePackageDirectory $runtime -ReviewOnly)
 $defaultZip = $defaultResult[-1].Path
 if ((Split-Path -Leaf $defaultZip) -notmatch '^dbce-mods-outrun-2006-[0-9]{8}-[0-9]{6}\.zip$') { throw 'Canonical default prefix or existing timestamp semantics changed' }

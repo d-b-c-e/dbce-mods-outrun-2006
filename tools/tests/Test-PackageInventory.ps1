@@ -98,7 +98,7 @@ if (@($index.distributionBlockers).Count -gt 0) {
     $failed=$false
     try { Assert-PackageInventory $source -ForDistribution }
     catch { $failed=$_.Exception.Message -like 'Distribution blocked:*' }
-    if (-not $failed) { throw 'Unresolved identity must block distribution' }
+    if (-not $failed) { throw 'Outstanding distribution gates must block distribution' }
     $script:checks++
 }
 Write-Host "PASS: $script:checks checks; recursive inventory and installer pre-write refusal, required notices, independent notice hashes, distribution blocker. Actual package payload not executed. Evidence: $fixture"

@@ -1,8 +1,9 @@
 # Third-party distribution inventory
 
 The index identifies exact source revisions, embedded notices and their SHA256
-hashes for the reviewed OutRun 2006 PC runtime. Notices are copied verbatim from
-pinned source files or extracted verbatim from their source comments. Retaining
+hashes for the reviewed OutRun 2006 PC runtime. Notices are copied from pinned
+source files or extracted from source comments; DirectX newline normalization
+is explicitly documented below. Retaining
 all relevant notices is the packaging policy, including licenses with an
 executable-object exception. It is not legal clearance or runtime certification.
 
@@ -20,11 +21,25 @@ Toolkit notices were retrieved through authenticated pinned source reads for
 v0.8.0 and native override dd0ef20ad0cdaccc7a67f10a707dbd2a27a6efe9.
 Zycore revision is verified by the pinned Zydis submodule API entry.
 
-The Microsoft DirectX header comments in pinned SDL declare MIT. The notice
-bundle includes the official DirectX-Headers MIT license identified by its
-immutable license blob; this does not identify an upstream header revision.
-Distribution blockers must remain explicit in index.json if any source/license
-relationship is unresolved. Normal packaging rejects blockers. -ReviewOnly
+DirectX factual provenance is verified against Microsoft DirectX-Headers revision
+e3515aca8141c98afd1a7b8436c843ef484ea877 and pinned SDL. This is a complete
+content match, not a claim about the original importer's checkout. The index
+records Microsoft/import/final blobs and the two SDL modification commits:
+SAL fallbacks, compiler pragma guards and five Gpu-to-GPU token edits. Reversing
+those edits reproduces the complete normalized upstream headers. Both declare MIT.
+The matching-revision license blob is 44378268be1b87777827ab64b1ea2d98e808850e
+(1093 bytes). The retained notice is 1074 bytes: CRLF was normalized to LF and
+one terminal newline added; otherwise text is identical. It is not byte-identical.
+The generated Xbox macros and their SDL-licensed generator are also identified.
+
+The resolved DirectX provenance issue is removed from distribution blockers.
+Physical driving/force/camera acceptance, failed historical native title
+confirmation and owner/checkpoint review remain open. Shared toolkit v0.13
+shutdown ignores completion of its 500 ms watchdog wait before resource release;
+no failure was reproduced. Physical FFB rollout requires delayed-worker testing
+or fix and binary provenance review. Keep FFB Off; no unattended FFB.
+These remaining gates keep distributionReady false. Normal packaging rejects
+blockers. -ReviewOnly
 permits an explicitly marked local review artifact; it does not grant release.
 
 Schema-2 payload privacy is independently enforced by a source-owned exact path

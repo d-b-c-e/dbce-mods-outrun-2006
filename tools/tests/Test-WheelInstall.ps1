@@ -79,6 +79,15 @@ $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $manifestPath
 $result = & $installer -GameDirectory $game -PackageDirectory $package -AllowUnknownProxy
 Check ((Hash (Join-Path $game 'ReduxConfig.json')) -eq $originalRedux) 'Descriptor install changed Redux settings'
 & $installer -Action Restore -GameDirectory $game -BackupDirectory $result.BackupDirectory
+# Canonical metadata is additive. A historical product descriptor and schema-1
+# manifest remain accepted without repository metadata or a settings migration.
+$legacyProduct = [ordered]@{schemaVersion=1;productId='outrun2006-c2c-pc';displayName='OutRun 2006: Coast 2 Coast PC mod';runtime='OutRun2006Tweaks-FFB';executable='OR2006C2C.EXE';architecture='x86'}
+$legacyProduct | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $productPath
+($manifest.files | Where-Object name -eq 'product.json').sha256 = Hash $productPath
+$manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $manifestPath
+$legacyResult = & $installer -GameDirectory $game -PackageDirectory $package -AllowUnknownProxy
+Check ((Hash (Join-Path $game 'OutRun2006Tweaks.ini')) -eq $originalConfig) 'Legacy product descriptor changed owner settings'
+& $installer -Action Restore -GameDirectory $game -BackupDirectory $legacyResult.BackupDirectory
 [IO.File]::AppendAllText((Join-Path $package 'dinput8.dll'), 'tamper')
 $failed = $false
 try { & $installer -GameDirectory $game -PackageDirectory $package -AllowUnknownProxy | Out-Null }

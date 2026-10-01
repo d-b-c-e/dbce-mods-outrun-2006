@@ -1,4 +1,8 @@
-# OutRun2006Tweaks - FFB Fork
+# DBCE Mods: OutRun 2006
+
+Canonical repository: [dbce-mods-outrun-2006](https://github.com/d-b-c-e/dbce-mods-outrun-2006)
+(planned name; no remote rename yet). Current source:
+[OutRun2006Tweaks-FFB](https://github.com/d-b-c-e/OutRun2006Tweaks-FFB).
 
 This is the runtime/package source for the **OutRun 2006: Coast 2 Coast PC mod**.
 Wheel, FFB and telemetry share the existing installer and settings. See
@@ -7,7 +11,11 @@ Wheel, FFB and telemetry share the existing installer and settings. See
 True triples, session recording and driving-input playback remain unavailable
 in this package. Related Redux visual/configuration history is retained separately.
 
-> **Fork of [emoose/OutRun2006Tweaks](https://github.com/emoose/OutRun2006Tweaks)** adding force feedback and telemetry for steering wheels. Part of the [OutRun 2006 Redux](../outrun2006-redux) project.
+Based on [emoose/OutRun2006Tweaks](https://github.com/emoose/OutRun2006Tweaks),
+adding force feedback and telemetry for steering wheels. Related
+[OutRun 2006 Redux](https://github.com/d-b-c-e/outrun2006-redux) is separate,
+private historical configuration/visual work; its assets and owner changes are
+not included in this package. See the product boundary below.
 
 ## FFB Fork Changes
 

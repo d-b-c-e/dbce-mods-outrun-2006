@@ -1,4 +1,12 @@
-# OutRun 2006 PC product boundary
+# DBCE Mods: OutRun 2006 product boundary
+
+Canonical repository URL: https://github.com/d-b-c-e/dbce-mods-outrun-2006.
+This name is prepared locally; the current public repository remains
+https://github.com/d-b-c-e/OutRun2006Tweaks-FFB, numeric ID `1163595970`.
+The intended rename preserves that ID, history, visibility and source lineage.
+This PC product is distinct from `dbce-mods-outrun-arcade`.
+The stable product ID `outrun2006-c2c-pc` and runtime field
+`OutRun2006Tweaks-FFB` are compatibility identities, not new repository names.
 
 This repository is the runtime and package source for the OutRun 2006: Coast 2
 Coast PC mod. `product.json` records the game identity and implemented versus
@@ -10,7 +18,8 @@ implemented by this package. Camera/render hooks are research footholds only.
 ## Consolidation decision
 
 Retain the OutRun2006Tweaks-FFB runtime history and existing setup/package scripts.
-Do not merge the related Redux repository into this runtime. Its older texture,
+Do not merge the separate private historical
+[Redux repository](https://github.com/d-b-c-e/outrun2006-redux) into this runtime. Its older texture,
 configuration and game-content work has different provenance and acceptance;
 its historical completion statements do not supersede this fork's latest gaps.
 ReduxConfig and assets are not shipped here. Reconcile exact owner, licensing,

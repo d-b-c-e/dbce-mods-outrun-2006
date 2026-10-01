@@ -21,7 +21,7 @@ if ($RuntimePackageDirectory) {
     $runtimeCommit = if ($frozen.runtimeSourceCommit) { $frozen.runtimeSourceCommit } else { $frozen.sourceCommit }
 }
 $noticeIndex = Assert-ThirdPartyNotices $root -ForDistribution:(-not $ReviewOnly)
-if (-not $OutputDirectory) { $OutputDirectory = Join-Path $root ('build/packages/wheel-settings-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')) }
+if (-not $OutputDirectory) { $OutputDirectory = Join-Path $root ('build/packages/dbce-mods-outrun-2006-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')) }
 if (Test-Path -LiteralPath $OutputDirectory) { throw 'Choose a new package directory; existing packages are immutable.' }
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 $out = (Resolve-Path -LiteralPath $OutputDirectory).Path

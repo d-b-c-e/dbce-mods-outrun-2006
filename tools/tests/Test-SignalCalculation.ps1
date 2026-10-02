@@ -1,18 +1,21 @@
 [CmdletBinding()]
-param()
+param([string]$DependencyRoot)
 $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+if(-not $DependencyRoot){$DependencyRoot=$repo}
+$DependencyRoot=(Resolve-Path -LiteralPath $DependencyRoot).Path
 $out=Join-Path $repo ('build\signal-calculation-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $out | Out-Null
 $vswhere=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 $vs=& $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
 if(!$vs){throw 'x86 C++ build tools required'}
 $compileArgs=@('/nologo','/std:c++latest','/EHsc','/MD','/D_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING','/D_CRT_SECURE_NO_WARNINGS','/DDIRECTINPUT_VERSION=0x0800','/DZYDIS_STATIC_BUILD','/DZYCORE_STATIC_BUILD')
-foreach($inc in @('src','external\imgui','external\spdlog\include','external\ModUtils','build\_deps\safetyhook-src\include','build\_deps\zydis-src\include','build\_deps\zydis-build','build\_deps\zydis-src\dependencies\zycore\include','build\_deps\zydis-build\zycore','lib\toolkit\include')){$compileArgs+='/I"'+(Join-Path $repo $inc)+'"'}
+foreach($inc in @('src','lib\toolkit\include')){$compileArgs+='/I"'+(Join-Path $repo $inc)+'"'}
+foreach($inc in @('external\imgui','external\spdlog\include','external\ModUtils','build\_deps\safetyhook-src\include','build\_deps\zydis-src\include','build\_deps\zydis-build','build\_deps\zydis-src\dependencies\zycore\include','build\_deps\zydis-build\zycore')){$compileArgs+='/I"'+(Join-Path $DependencyRoot $inc)+'"'}
 $exe=Join-Path $out 'signal-calculation.exe'
 $compileArgs+='"'+(Join-Path $repo 'tools\tests\signal_calculation_fixture.cpp')+'"'
 $compileArgs+='/Fe"'+$exe+'"'
-foreach($lib in @('build\_deps\safetyhook-build\Release\safetyhook.lib','build\_deps\zydis-build\Release\Zydis.lib','build\_deps\zydis-build\zycore\Release\Zycore.lib')){$compileArgs+='"'+(Join-Path $repo $lib)+'"'}
+foreach($lib in @('build\_deps\safetyhook-build\Release\safetyhook.lib','build\_deps\zydis-build\Release\Zydis.lib','build\_deps\zydis-build\zycore\Release\Zycore.lib')){$compileArgs+='"'+(Join-Path $DependencyRoot $lib)+'"'}
 $compileArgs+='user32.lib shell32.lib ole32.lib'
 $runner=Join-Path $out 'build.cmd'
 @('@echo off',('call "'+$vs+'\VC\Auxiliary\Build\vcvars32.bat" >nul'),'if errorlevel 1 exit /b %errorlevel%',('cl '+($compileArgs -join ' ')),'exit /b %errorlevel%')|Set-Content $runner -Encoding ascii

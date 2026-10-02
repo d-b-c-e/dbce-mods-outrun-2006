@@ -45,5 +45,5 @@
     "staticCRT": true,
     "generalBitReproducibilityProven": false
   },
-  "adoptionStatus": "HOLD: plain g_lockInit worker read races initialization publication; toolkit fix and newly matched binary required"
+  "adoptionStatus": "Qualified PC review candidate: consumer never calls SetHoldTimeoutMs (only worker creation route). General API initialization-publication race remains a toolkit follow-up. Independent review before promotion."
 }

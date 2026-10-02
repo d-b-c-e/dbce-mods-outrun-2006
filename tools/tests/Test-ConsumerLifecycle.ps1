@@ -2,6 +2,13 @@
 param([Parameter(Mandatory)][string]$ExactExecutable)
 $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+# Qualified native adoption excludes worker-before-initialization API use.
+# The retained toolkit starts its watchdog only through SetHoldTimeoutMs.
+foreach ($source in Get-ChildItem -LiteralPath (Join-Path $repo 'src') -Recurse -File) {
+    if ([IO.File]::ReadAllText($source.FullName) -match '\bSetHoldTimeoutMs\s*\(') {
+        throw 'New native watchdog caller requires initialization-publication safety review'
+    }
+}
 $out=Join-Path $repo 'build\consumer-lifecycle-fixture'
 New-Item -ItemType Directory -Path $out -Force | Out-Null
 $vswhere=Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'

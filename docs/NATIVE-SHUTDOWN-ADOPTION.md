@@ -1,14 +1,18 @@
 # OutRun 2006 PC native shutdown adoption candidate
 
-**HOLD: not accepted for default promotion, deployment or physical testing.**
-Safety follow-up found plain `g_lockInit` publication read by `ApplyHoldTimeout`
-while public initialization writes it. `SetHoldTimeoutMs` can start the worker
-before the critical section is initialized; the API mutex does not protect the
-worker read. Exact source lines 116, 243/510, 1610 and 1634-1636 establish the
-unsynchronized path. Normal FreeDirectInput joins before release and does not
-reset this flag; DllMain resets it on detach. No runtime data-race detector result
-or observed device failure is claimed. A reviewed toolkit fix and newly matched
-binary provenance are required before acceptance.
+**Qualified PC candidate: independent review required before promotion.**
+The general toolkit API permits an unsynchronized plain g_lockInit worker read
+when SetHoldTimeoutMs starts a worker before initialization. OutRun's production
+source never calls SetHoldTimeoutMs; it is the only native worker-creation route,
+and g_holdMs starts at zero. Therefore this consumer never starts that worker.
+All public native initialization/output/cleanup calls use consumer lifecycle
+serialization; cleanup drains admission before FreeDirectInput and retains the
+module pinned. No native lock flag is reset on selection cleanup. This excludes
+the reported worker-before-initialization race for this exact PC call pattern,
+without claiming general toolkit API race safety. A shared toolkit publication
+repair remains a follow-up. The device-free actual-DLL harness deliberately starts
+workers without initializing devices, but performs no concurrent initialization;
+its passing cycles are not a race-safety proof.
 
 The separately reported low-demand restart defect does **not** reproduce in this
 41-export source: after ZeroForces, periodic demand 100 and condition coefficient

@@ -1,5 +1,21 @@
 # OutRun 2006 PC native shutdown adoption candidate
 
+**HOLD: not accepted for default promotion, deployment or physical testing.**
+Safety follow-up found plain `g_lockInit` publication read by `ApplyHoldTimeout`
+while public initialization writes it. `SetHoldTimeoutMs` can start the worker
+before the critical section is initialized; the API mutex does not protect the
+worker read. Exact source lines 116, 243/510, 1610 and 1634-1636 establish the
+unsynchronized path. Normal FreeDirectInput joins before release and does not
+reset this flag; DllMain resets it on detach. No runtime data-race detector result
+or observed device failure is claimed. A reviewed toolkit fix and newly matched
+binary provenance are required before acceptance.
+
+The separately reported low-demand restart defect does **not** reproduce in this
+41-export source: after ZeroForces, periodic demand 100 and condition coefficient
+100 both return success, issue SetParameters with DIEP_START and mark started.
+Periodic `wheel_burst::needs_update` and condition filtering account for stopped
+effects. Evidence uses exact-source fake effects; no physical output is claimed.
+
 Consumer parent: `8a84b9daecc5d3446a6bea85cd13d72421445380`.
 Toolkit source: `f8f0619b5588f2d11b44f4becd4198775d4a8bcf`, tree
 `d9f59422cff93383f9cf27f3cd641fd2adf00a35`.

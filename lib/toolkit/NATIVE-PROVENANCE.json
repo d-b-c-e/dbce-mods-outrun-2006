@@ -44,5 +44,6 @@
     ],
     "staticCRT": true,
     "generalBitReproducibilityProven": false
-  }
+  },
+  "adoptionStatus": "HOLD: plain g_lockInit worker read races initialization publication; toolkit fix and newly matched binary required"
 }

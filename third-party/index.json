@@ -5,7 +5,7 @@
   "legalClearance": false,
   "distributionBlockers": [
     "Physical driving, force and player-camera acceptance remain incomplete; native title confirmation failed historically. Keep FFB Off pending consumer/actuator owner and installation checkpoint review.",
-    "Matched native shutdown source f8f0619 is integrated in an isolated review candidate; independent consumer integration review and physical driver/actuator acceptance remain required. Blocking driver calls have no bounded shutdown guarantee."
+    "HOLD: matched native shutdown source f8f0619 has an unsynchronized plain g_lockInit worker read; reviewed initialization-publication fix and newly matched binary provenance are required, followed by independent consumer integration review and physical driver/actuator acceptance. Blocking driver calls have no bounded shutdown guarantee."
   ],
   "components": [
     {

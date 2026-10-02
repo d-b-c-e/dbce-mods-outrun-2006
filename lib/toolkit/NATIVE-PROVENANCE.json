@@ -9,7 +9,7 @@
   "archive": "dbce-wheel-mod-toolkit-0.13.0.zip",
   "archiveSha256": "2f73f5427465cd85e8d969ee7ecaf7d9c2cb08ed923da80c4ac7c7234af1b0cc",
   "reason": "Matched reviewed shutdown build: stop effects, join actual watchdog completion, then release resources. Strict GUID selection retained.",
-  "preserved": "All existing headers, force model, profiles and encoder are byte-identical to the clean consumer parent 8a84b9d; existing consumer edits and historical sync hashes remain preserved.",
+  "preserved": "All existing headers, force model, profiles and encoder are byte-identical to the consumer integration base 8a84b9d; existing consumer edits and historical sync hashes remain preserved.",
   "files": [
     {
       "archivePath": "native/include/wheelffb.h",

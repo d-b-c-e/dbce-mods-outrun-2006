@@ -1,0 +1,32 @@
+{
+  "schema": "dbce.outrun2006.command-metrics",
+  "version": 1,
+  "product": "outrun2006-c2c-pc",
+  "recordingFormat": "experimental DBCEORR2 schema v2, legacy-only, fixed 60 Hz, at most 128 calculations",
+  "physicalOutput": false,
+  "definitions": {
+    "constantMagnitude": "Raw kind-1 signed requests after legacy calculation inversion/structural slew and calculation clamp, before FFBGlobalStrength and native actuator encoding. Native request range -10000..10000 is not measured Nm or wheel torque percentage.",
+    "constantMagnitudeStatistics": "Minimum/maximum signed request, maximum absolute request, and sum(abs(request))/constantRequestCount. Request-count weighted only; includes requests whose recorded feedback differs from their requested value. Null when no kind-1 request exists.",
+    "constantRequestCapFraction": "Count(abs(kind1 magnitude)==10000)/kind1 request count. This is occupancy of a calculation-request bound by request count, not output-envelope cap dwell time or physical saturation. Null when no kind-1 requests exist.",
+    "constantNonzeroRequestFraction": "Count(kind1 magnitude!=0)/kind1 request count. Request activity, not effect duty. Null with no kind-1 requests.",
+    "requestFrameActivityFraction": "Captured calculation frames containing at least one kind-1 request divided by captured frame count; nonzero variant requires a nonzero kind-1 request. Does not infer held effects or record absent external gates/zeros.",
+    "sampleTickSpanMs": "Last recorded monotonic millisecond sample tick minus first sample tick. No extrapolated terminal hold interval; equal ticks produce zero sample span, not a zero-duration effect claim.",
+    "fixed60CalculationStepSumSeconds": "Captured calculation call count/60. A nominal arithmetic-step sum distinct from sampled tick span and real driving/effect duration; no variable-dt model is inferred.",
+    "requestPairDelta": "Absolute signed difference between consecutive recorded kind-1 requests within a segment. Any checkpoint or configuration change clears the previous request. Includes skipped calculation frames and explicit synthetic sink refusal; not structural-slew-limiter occupancy or instantaneous actuator slew. Null with no eligible pairs.",
+    "requestPairAverageRate": "abs(requestB-requestA)*1000/(sampleTickB-sampleTickA), maximum over positive-tick pairs in one segment. Equal ticks are counted and excluded from rates. Tick quantization and gaps prevent instantaneous-slew interpretation; model still calculates with fixed 1/60 second dt. Null if no positive-tick pair exists.",
+    "feedbackDifferentCount": "Count of kind-1 requests whose recorded previous-force-after-sink differs from requested magnitude. A numeric feedback observation used by replay, not a driver acceptance/torque-success count.",
+    "periodicParameters": "Kind-2 request count and min/max amplitude parameter and requested Hz, kept separate from kind-1 units. Amplitude may exceed 1 before UpdatePeriodic clamps/scales/converts to native integer units. No sum with constant requests, no periodic output cap/duty/torque claim.",
+    "captureCompletion": "Strict codec complete footer/checksum and successful same-production recalculation. Explicit recorder close is not game shutdown, effect Stop/Release or a complete force-event stream.",
+    "provenance": "Summary SHA256 binds exact schema-v2 recording bytes; accompanying catalog binds summary, case input, definitions, source blobs, compiler and executable. Embedded 20-byte declared calculation revision remains caller supplied and unauthenticated, separately reported from actual checkout/tool identity. FNV footer is corruption detection, not authenticity."
+  },
+  "unsupported": {
+    "postStrengthOutputEnvelope": "Native admission, global scaling/encoding, actual driver effects and external zero/watchdog traffic are outside this recording.",
+    "timeWeightedCapOccupancy": "No complete post-encoding held-command stream or terminal interval.",
+    "effectDutyAndHoldDuration": "Sparse update requests do not identify effect start/stop/hold state; absence of requests is not zero force.",
+    "physicalTorqueNm": "No physical device, torque measurement, actuator calibration or driver encoding acceptance.",
+    "instantaneousActuatorSlew": "Request-pair averages do not measure actual actuator slew or the structural-only limiter.",
+    "shutdown": "Recorder Take(true) is not output shutdown; external Stop/Release/zero calls and elapsed shutdown timing are not recorded.",
+    "crossGameFeelEquivalence": "OutRun pre-actuator native-range constants and periodic amplitude/Hz differ from other games and normalized shared output envelopes. Matching summary numbers does not establish Woden/OutRun force or feel equivalence."
+  },
+  "comparisonEligibility": "Within this versioned raw-request domain and exact case/source/config provenance only; not the shared toolkit case/observation v1 format and not a cross-game torque/duty/feel comparator."
+}

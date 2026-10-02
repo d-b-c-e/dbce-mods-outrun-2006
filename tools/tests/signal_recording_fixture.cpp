@@ -111,6 +111,7 @@ static void SelfTest(const char* input,const wchar_t* output) {
     auto unstable=R::Take(true);Require(unstable&&unstable->failed&&!unstable->complete,"unstable throttle completed");Invalid(R::Encode(*unstable));
     std::cout<<"PASS: synthetic record/read/production recalculate; all legacy settings and initial/checkpoint state; constant/periodic observations; reset/config transitions; explicit complete/incomplete close; bounds/checksum/truncation/nonfinite/time/reset refusal; zero native output\n";
 }
+#ifndef OUTRUN_RECORDING_NO_MAIN
 int main(int argc,char**argv){
     try{spdlog::set_level(spdlog::level::off);
         if(argc==4&&std::string_view(argv[1])=="selftest"){
@@ -122,3 +123,4 @@ int main(int argc,char**argv){
     }catch(const Mismatch& e){std::cerr<<e.what()<<"\n";return 1;}
     catch(const std::exception&e){std::cerr<<e.what()<<"\n";return 2;}
 }
+#endif

@@ -51,17 +51,17 @@ static void SelfTest(const char* input,const wchar_t* output) {
     Require(R::Begin(revision),"begin failed");
     for(size_t i=0;i<frames.size();i++){
         auto f=frames[i];tick=f.tick;
-        if(i==20)FFB::ResetCalculationState();
+        if(i==15)FFB::ResetCalculationState(); // Keep the later gear transition observable.
         if(i==30)Settings::FFBSpringStrength=0.57f;
         if(i==40){FFB::periodicsActive=true;FFB::slotRoadTexture=0;FFB::slotTireSlip=1;}
         FFB::CalculateSignals(&f.car,f.roughness,f.water,{i==10?RejectConstant:Constant,Periodic},Clock);
     }
-    auto s=R::Take(true);Require(s&&s->complete&&s->count==frames.size()&&s->frames[20].checkpoint&&s->frames[40].checkpoint,"record/checkpoints");
+    auto s=R::Take(true);Require(s&&s->complete&&s->count==frames.size()&&s->frames[15].checkpoint&&s->frames[40].checkpoint,"record/checkpoints");
     auto bytes=R::Encode(*s);auto read=R::Decode(bytes);Replay(*read);Replay(*read);R::SaveNew(output,*s);
     bool existingRefused=false;try{R::SaveNew(output,*s);}catch(...){existingRefused=true;}Require(existingRefused,"existing capture overwritten");
     auto bad=std::make_unique<R::Session>(*s);
     bad->complete=false;Invalid(R::Encode(*bad));
-    *bad=*s;bad->frames[20].checkpoint=false;Invalid(R::Encode(*bad));
+    *bad=*s;bad->frames[15].checkpoint=false;Invalid(R::Encode(*bad));
     *bad=*s;bad->frames[0].checkpoint=false;Invalid(R::Encode(*bad));
     *bad=*s;bad->frames[0].tick=100;Invalid(R::Encode(*bad));
     *bad=*s;bad->frames[2].tick=1;Invalid(R::Encode(*bad));

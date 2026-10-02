@@ -59,5 +59,15 @@ try {
  $boundary=Join-Path $out 'clock-boundary.csv'
  Write-Lf $boundary @($header,'0,4294967295,0.8,0.2,0.01,15,2,2,0,180,0.8,1','1,4294967295,0.8,0.2,0.01,15,2,2,0,180,0.8,1','complete,2')
  & $exe $boundary | Out-Null;if($LASTEXITCODE -ne 0){throw 'equal ticks and max clock should be accepted'}
+ $recordExe=Join-Path $out 'signal-recording.exe'
+ $recordArgs=@($compileArgs | ForEach-Object {$_.Replace('signal_calculation_fixture.cpp','signal_recording_fixture.cpp').Replace('/Fe"'+$exe+'"','/Fe"'+$recordExe+'"')})
+ @('@echo off',('call "'+$vs+'\VC\Auxiliary\Build\vcvars32.bat" >nul'),'if errorlevel 1 exit /b %errorlevel%',('cl '+($recordArgs -join ' ')),'exit /b %errorlevel%')|Set-Content $runner -Encoding ascii
+ & $runner;if($LASTEXITCODE -ne 0){throw 'recording fixture compile failed'}
+ $session=Join-Path $out 'synthetic.osig'
+ & $recordExe selftest $inputPath $session;if($LASTEXITCODE -ne 0){throw 'record/read roundtrip tests failed'}
+ & $recordExe replay $session;if($LASTEXITCODE -ne 0){throw 'exact file read/recalculation failed'}
+ & $recordExe replay ($session+'.mismatch') 2>&1|Out-Null;if($LASTEXITCODE -ne 1){throw 'recorded expected mismatch must exit1'}
+ $corrupt=Join-Path $out 'corrupt.osig';$bytes=[IO.File]::ReadAllBytes($session);$bytes[48]=$bytes[48] -bxor 1;[IO.File]::WriteAllBytes($corrupt,$bytes)
+ & $recordExe replay $corrupt 2>&1|Out-Null;if($LASTEXITCODE -ne 2){throw 'corrupt file must exit2'}
  Write-Host "PASS: actual legacy calculation, constant/periodic reset repeatability, 48-frame warmup/shift/crash/water history; fixed60Hz semantics; numeric/privacy/version/bounds/truncation/order and exits 0/1/2. Memory-only output. Evidence: $out"
 }finally{Pop-Location}

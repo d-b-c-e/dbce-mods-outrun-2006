@@ -1,5 +1,6 @@
 // Included inside FFB after its state declarations. Production calculation only.
 struct CalculationSink { void (*constant)(LONG); void (*periodic)(int, float, float); };
+#include "signal_recording.inl"
 #ifdef OUTRUN_OFFLINE_SIGNALS
 // Compile-time offline seam only: never enabled by INI or shipped runtime.
 // Caller owns settings/model identity and must run a single isolated calculation.
@@ -23,6 +24,7 @@ static void CalculateSignals(EVWORK_CAR* car, float roughness, DWORD waterFlag,
     const CalculationSink& sink, DWORD (WINAPI *clock)(),
     void (*sampleSurface)(EVWORK_CAR*, float&, DWORD&) = nullptr)
 {
+    SignalRecording::Scope recordedFrame(car,clock);
 		// Warmup: ramp force scaling from 0 to 1 over first N frames.
 		// Prevents garbage telemetry on initial frames from causing force spikes.
 		// Using a ramp instead of a hard cutoff avoids the problem of game state
@@ -59,10 +61,12 @@ static void CalculateSignals(EVWORK_CAR* car, float roughness, DWORD waterFlag,
 		// and read the FFB STEERSCAN line before tuning either.
 		float steer = car->field_1D0;                      // scale unverified
 		float steerRate = car->field_1D4;                  // scale unverified
+        SignalRecording::Inputs(speed,stateFlags,lateralForce1,lateralForce2,curGear,steer,steerRate);
 
         // Production samples at the original ordering point; offline supplies
         // the captured numeric result and never calls the game's surface LUT.
         if (sampleSurface) sampleSurface(car, roughness, waterFlag);
+        SignalRecording::Surface(roughness,waterFlag);
 
 		// ================================================================
 		// SIGNAL CONDITIONING -- lateral slide EMA, drift depth, histories
@@ -178,6 +182,7 @@ static void CalculateSignals(EVWORK_CAR* car, float roughness, DWORD waterFlag,
 		// Shares its sine with engine idle -- the states are mutually exclusive.
 		float slipAmp = 0.0f;
 		float slipFreq = 40.0f;
+        bool recordedIdleEntered=false;
 		if (driftAmt > 0.15f && speed > 0.1f)
 		{
 			slipAmp = driftAmt * Settings::FFBTireSlip;
@@ -185,14 +190,17 @@ static void CalculateSignals(EVWORK_CAR* car, float roughness, DWORD waterFlag,
 		}
 		else if (speed < 0.05f && car->pedal_amount_34 > 0)
 		{
+            recordedIdleEntered=true;
 			// Engine idle/launch rumble -- the only engine vibration kept.
 			// Continuous at-speed engine ripple is gone: real cabinets didn't
 			// render it through the steering motor, and at speed "aliveness"
 			// now comes from road texture (which actually renders).
 			float throttleNorm = std::clamp(static_cast<float>(car->pedal_amount_34) / 255.0f, 0.0f, 1.0f);
+            SignalRecording::Throttle(throttleNorm);
 			slipAmp = Settings::FFBEngineIdle * throttleNorm;
 			slipFreq = 15.0f + 7.0f * throttleNorm;
 		}
+        SignalRecording::IdleSelection(speed,recordedIdleEntered);
 
 		// ================================================================
 		// CONSTANT FORCE -- center-out model:
@@ -239,7 +247,10 @@ static void CalculateSignals(EVWORK_CAR* car, float roughness, DWORD waterFlag,
 			// profile's own shaper.strength, and is applied inside SetConstantForce.
 			LONG diMagnitude = std::clamp((LONG)(shaped * 10000.0f), (LONG)-10000, (LONG)10000);
 			if (std::abs(diMagnitude - prevConstantLevel) > 15 || sharedModel->last_was_event)
-				sink.constant(diMagnitude);
+			{
+                sink.constant(diMagnitude);
+                SignalRecording::Observe(1,0,diMagnitude,0);
+            }
 		}
 		else if (ffbLoaded)
 		{
@@ -376,6 +387,7 @@ static void CalculateSignals(EVWORK_CAR* car, float roughness, DWORD waterFlag,
 			if (delta > 15 || crashImpulseTimer > 80)
 			{
 				sink.constant(diMagnitude);
+                SignalRecording::Observe(1,0,diMagnitude,0);
 			}
 		}
 
@@ -386,7 +398,9 @@ static void CalculateSignals(EVWORK_CAR* car, float roughness, DWORD waterFlag,
 		if (periodicsActive && updateEnvelopes)
 		{
 			sink.periodic(slotRoadTexture, roadAmp, roadFreq);
+            SignalRecording::Observe(2,slotRoadTexture,roadAmp,roadFreq);
 			sink.periodic(slotTireSlip, slipAmp, slipFreq);
+            SignalRecording::Observe(2,slotTireSlip,slipAmp,slipFreq);
 		}
 		// A slot whose handle dies is recreated inside the DLL, behind its own
 		// 500 ms hold-off, so there is nothing to retry from here.

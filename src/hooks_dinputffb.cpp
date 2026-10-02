@@ -18,6 +18,10 @@
 #include <cstdio>
 #include <algorithm>
 #include <string>
+#include <array>
+#include <memory>
+#include <new>
+#include <exception>
 
 #include "hook_mgr.hpp"
 #include "plugin.hpp"

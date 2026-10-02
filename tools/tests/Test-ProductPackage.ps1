@@ -36,7 +36,10 @@ $index = Get-Content -LiteralPath (Join-Path $out 'third-party/index.json') -Raw
 $directx = @($index.components | Where-Object id -eq 'directx-headers')[0]
 if ($index.legalClearance -or $manifest.distributionReady -or @($index.distributionBlockers).Count -ne 2) { throw 'Remaining review gates or clearance status changed' }
 if (($index.distributionBlockers -join ' ') -match 'upstream.*unresolved|DirectX.*needs review') { throw 'Resolved factual DirectX gate retained' }
-if (($index.distributionBlockers -join ' ') -notmatch '500 ms' -or ($index.distributionBlockers -join ' ') -notmatch 'Physical driving') { throw 'Acceptance or shutdown gate lost' }
+if (($index.distributionBlockers -join ' ') -notmatch 'independent consumer integration review' -or ($index.distributionBlockers -join ' ') -notmatch 'Physical driving') { throw 'Acceptance or shutdown integration gate lost' }
+$native = Get-Content -LiteralPath (Join-Path $out 'provenance/NATIVE-PROVENANCE.json') -Raw | ConvertFrom-Json
+if ($native.sourceCommit -ne 'f8f0619b5588f2d11b44f4becd4198775d4a8bcf' -or $native.exportCount -ne 41 -or $native.nativeVersion -ne '0.6.0' -or $native.buildEvidence.generalBitReproducibilityProven) { throw 'Matched native source/ABI provenance lost or overstated' }
+if ($native.files[1].sha256 -ne (Get-FileHash -LiteralPath (Join-Path $root 'lib/toolkit/native/x86/WheelFfb.dll')).Hash.ToLowerInvariant()) { throw 'Native provenance does not match vendored bytes' }
 if ($directx.provenance.status -ne 'verified content match; original importer checkout not claimed' -or $directx.provenance.licenseReceipt.byteIdentical -or $directx.provenance.licenseReceipt.retainedBytes -ne 1074) { throw 'DirectX content-match or license-normalization receipt lost' }
 $defaultResult = @(& (Join-Path $root 'tools/Package-WheelSettings.ps1') -RuntimePackageDirectory $runtime -ReviewOnly)
 $defaultZip = $defaultResult[-1].Path

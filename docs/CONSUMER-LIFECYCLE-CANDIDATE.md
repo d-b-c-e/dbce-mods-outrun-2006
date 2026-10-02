@@ -63,11 +63,11 @@ detach check is a source contract, not proof of every dependency's detach behavi
 `tools/tests/Test-WheelSettings.ps1` covers existing settings, FFB gates, calibration,
 input dispatch and fake COM ownership cleanup.
 
-The retained toolkit native 0.6.0 still ignores completion of a 500 ms worker
-wait before resource release. This consumer change does not fix or validate that
-native worker lifecycle. A matched reviewed toolkit shutdown build, delayed-worker
-integration test and binary provenance remain required before physical rollout;
-do not replace the DLL on the strength of these fake tests. Driving, wheel feel,
+The isolated native integration now uses toolkit source `f8f0619`, retaining the
+native 0.6.0/41-export ABI. It stops effects, waits for actual worker completion,
+then releases resources. See `NATIVE-SHUTDOWN-ADOPTION.md` and the component
+provenance for the matched artifact and device-free evidence. Independent review
+and physical driver/actuator acceptance remain required. Driving, wheel feel,
 camera and telemetry receiver acceptance remain separate gates. TerminateProcess,
 external kill, crashes and sudden loss can skip this normal route; neither module
 pinning nor this hook guarantees force cessation on those paths. No universal

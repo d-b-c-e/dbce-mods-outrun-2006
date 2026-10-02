@@ -5,12 +5,12 @@
   "legalClearance": false,
   "distributionBlockers": [
     "Physical driving, force and player-camera acceptance remain incomplete; native title confirmation failed historically. Keep FFB Off pending consumer/actuator owner and installation checkpoint review.",
-    "Shared toolkit v0.13 shutdown ignores completion of a 500 ms watchdog wait before resource release; no failure reproduced. Physical FFB rollout requires delayed-worker testing or fix and binary provenance review."
+    "Matched native shutdown source f8f0619 is integrated in an isolated review candidate; independent consumer integration review and physical driver/actuator acceptance remain required. Blocking driver calls have no bounded shutdown guarantee."
   ],
   "components": [
     {
       "id": "toolkit",
-      "revision": "v0.8.0 baseline; v0.13.0 override dd0ef20ad0cdaccc7a67f10a707dbd2a27a6efe9",
+      "revision": "v0.8.0 baseline; v0.13.0 ABI/header baseline; native shutdown source override f8f0619b5588f2d11b44f4becd4198775d4a8bcf",
       "source": "lib/toolkit; pinned LICENSE blob aa489132a7f0fad4450b594e49cfea0b8f9b3f4c",
       "license": "MIT",
       "notices": [

@@ -1,5 +1,11 @@
 # OutRun2006Tweaks-FFB working notes
 
+Recording/playback intake: read `docs/STAGE-PLAYBACK.md`. The existing 128-frame
+force recorder passed x86 offline regression again on October 5, but has no
+external runtime arm/save or gameplay playback. FFB Off skips calculation;
+preserve the model stream when adding a separate output mute. This intake did
+not change the accepted install or game hooks.
+
 Read [CLAUDE.md](CLAUDE.md) for build architecture and known force-signal issues,
 then [the UX adoption inventory](docs/UX-OVERNIGHT-2026-09-16.md) and the latest
 deployment receipt under `docs/`. Offline fixtures and deployment are not proof

@@ -1,5 +1,11 @@
 # OutRun2006Tweaks-FFB working notes
 
+**October 5 startup recovery:** the Stream Deck copy lacked 110 script/BK game
+assets. Restored only missing files from two agreeing local installs; all hashes
+and 31 protected root/save files verified. Startup still needs a post-repair test.
+Run `tools/Test-GameData.ps1` before another launch. See
+`docs/STARTUP-ASSETS-2026-10-05.md`; do not blame hooks or resolution without evidence.
+
 Recording/playback intake: read `docs/STAGE-PLAYBACK.md`. The existing 128-frame
 force recorder passed x86 offline regression again on October 5, but has no
 external runtime arm/save or gameplay playback. FFB Off skips calculation;

@@ -1,0 +1,557 @@
+{
+  "gameSha256": "68CEB386829066F8455B9D027320AF962584321F3E2E8A79C72841495A6134C3",
+  "scope": "110 script/BK binary assets found missing from the archived install; not a complete game-file manifest",
+  "schema": "outrun.required-game-data@1",
+  "files": [
+    {
+      "bytes": 7256,
+      "sha256": "692E3406CB6042D11EADF9B58C1452607CD01647013E8018CF3AF4202050DDAC",
+      "path": "Scripts/bin/csc_data_2_ren.bin"
+    },
+    {
+      "bytes": 1820,
+      "sha256": "39E6BDF571F3639941283366E788E0D01EEFB9BA0E270214EB49C1EE1A705850",
+      "path": "Scripts/bin/csc_data_2.bin"
+    },
+    {
+      "bytes": 7256,
+      "sha256": "CC82783C15EEFB70FC937CE88CB15E2FA2D9B00FC0995BB2F88863CBA093A899",
+      "path": "Scripts/bin/csc_data_cvt_ren.bin"
+    },
+    {
+      "bytes": 1820,
+      "sha256": "96B0DA791C0439309A57FE8273C2F739D8D7C1CF7E84B90944D6DCE49409BC69",
+      "path": "Scripts/bin/csc_data_cvt.bin"
+    },
+    {
+      "bytes": 1820,
+      "sha256": "375B1D613A346B96AC798985104A33CF5E4D8CAD656C2C2D163A77D00532CC4F",
+      "path": "Scripts/bin/csc_data_easy.bin"
+    },
+    {
+      "bytes": 1820,
+      "sha256": "B3E699FC679A9E439F49FBF09356695CFBA7D086D59BA4993DB62DE4D46600E2",
+      "path": "Scripts/bin/NetworkRandomCourseSP.bin"
+    },
+    {
+      "bytes": 14504,
+      "sha256": "32CCD5B7390EFB511A24B46CFE17D4A18263D169BFD9BA3A57FD6C402E481744",
+      "path": "Scripts/bin/OR2_goals.bin"
+    },
+    {
+      "bytes": 7304,
+      "sha256": "484239F60CBA71D1E17C1F5E30F33CD1A0433856291593AFD2963D3EE054DDE0",
+      "path": "Scripts/bin/OR2_Reverse_goals.bin"
+    },
+    {
+      "bytes": 1744,
+      "sha256": "DFEC8A92A6F71C47E200D259F680643B48E0F049FB1675A60E075EFCF845611B",
+      "path": "Scripts/bin/OutrunMiles.bin"
+    },
+    {
+      "bytes": 340,
+      "sha256": "3068EF1A47C003956EDDDDBA2D0A8053037272A8C7596B322B2F8DDA8EB56D9C",
+      "path": "Scripts/bin/RaceAssignment.bin"
+    },
+    {
+      "bytes": 4792,
+      "sha256": "4B7902529D28708573A4732FDEE3E053EB15EF99B0475BDFA6CFE0A81B908D2A",
+      "path": "Scripts/bin/RaceAttack.bin"
+    },
+    {
+      "bytes": 90620,
+      "sha256": "E43166EF9AE8B305185E23AC9A21ED8387AEB530E25991BB666957A9E5287A50",
+      "path": "Scripts/bin/Races.bin"
+    },
+    {
+      "bytes": 5136,
+      "sha256": "834E29EE53F700101819DF295AB28E2D3A82A500335F65A650EB00D418B33DE0",
+      "path": "Scripts/bin/Req_Alaska_r.bin"
+    },
+    {
+      "bytes": 7244,
+      "sha256": "38A32B79D552118C0E21644B3BDCE8336CB794D9280D9B1DC8D32F81767544B2",
+      "path": "Scripts/bin/Req_Alaska.bin"
+    },
+    {
+      "bytes": 6180,
+      "sha256": "816E06C8FF73365994AF21F9F86033A7C1065A0B22B140651F63F4A244FF7954",
+      "path": "Scripts/bin/Req_Alpine_r.bin"
+    },
+    {
+      "bytes": 3776,
+      "sha256": "60B93432E6F0542A2698938DB8DF8182FAC8428097CA4981283DC80CF5BBDBD9",
+      "path": "Scripts/bin/Req_Alpine.bin"
+    },
+    {
+      "bytes": 6216,
+      "sha256": "2F6725F0B4D39222E5460B83399A8572B95C97448850DE9BD32627DB88B7A8C3",
+      "path": "Scripts/bin/Req_Amazon_r.bin"
+    },
+    {
+      "bytes": 4800,
+      "sha256": "9FAE0E84B96171ED0699CC671C3C4B087D0E2E40B662725D2FD4E8EDD559BA8E",
+      "path": "Scripts/bin/Req_Amazon.bin"
+    },
+    {
+      "bytes": 5684,
+      "sha256": "9DF9B92AA09E15023190D35063BF5A930D413B01A948C159EC58F56C7868A9D9",
+      "path": "Scripts/bin/Req_Ancient_Ruins_r.bin"
+    },
+    {
+      "bytes": 5900,
+      "sha256": "A009447422887A81356981B3C9653AC45A4D441C279797D22312C11CA9989EE5",
+      "path": "Scripts/bin/Req_Ancient_Ruins.bin"
+    },
+    {
+      "bytes": 6996,
+      "sha256": "EAEF4306CD0BEE034BD8B4231DCB760B7D7318ABBC72810EFB35D8BAE8D04DF5",
+      "path": "Scripts/bin/Req_Beach_r.bin"
+    },
+    {
+      "bytes": 3964,
+      "sha256": "DB9655651E37CD10357710200FDBAAA021865EEDCB5A1D55771E719B42DBBF3E",
+      "path": "Scripts/bin/Req_Beach.bin"
+    },
+    {
+      "bytes": 7504,
+      "sha256": "DEC36C1DE0BA5E7ACAD67D390CE441C84883932DFBD3E57F76C9B33BEB03D865",
+      "path": "Scripts/bin/Req_Cape_Way_r.bin"
+    },
+    {
+      "bytes": 6600,
+      "sha256": "B5FB5CE5D9DFF071351318203848E185B08BF037D490FCD4A5BDCBCDAC5140E2",
+      "path": "Scripts/bin/Req_Cape_Way.bin"
+    },
+    {
+      "bytes": 7356,
+      "sha256": "F186562D905DA1EA8274B0B3D3D6196FFD8C8205D48017EC7C8793E78EA4FB78",
+      "path": "Scripts/bin/Req_Castle_Wall_r.bin"
+    },
+    {
+      "bytes": 5208,
+      "sha256": "E458C7AC8403D74AD3C112B3018469AC7DE799C9E38F6BAD6531C3CFAF1FE3B0",
+      "path": "Scripts/bin/Req_Castle_Wall.bin"
+    },
+    {
+      "bytes": 4252,
+      "sha256": "9BB023F8C115C61B30D4B0AA39D856ECB9285B1E64FCD062E145D21E6AADED9C",
+      "path": "Scripts/bin/Req_Cloudy_Highland_r.bin"
+    },
+    {
+      "bytes": 6328,
+      "sha256": "CF6A7AE9B3678ABE6D2602659BF514116A5C3CD79770A277120A21825F03677B",
+      "path": "Scripts/bin/Req_Cloudy_Highland.bin"
+    },
+    {
+      "bytes": 3428,
+      "sha256": "FED594EB845A96925AA660B52DC42C2CD2F8FE89DAA0DFE00E4C9FBB25337613",
+      "path": "Scripts/bin/Req_Coniferous_Forest_r.bin"
+    },
+    {
+      "bytes": 4192,
+      "sha256": "DB4927729E12ECB474A355306836BE1230465D1AA3A437B213C6E2BA0A776EF3",
+      "path": "Scripts/bin/Req_Coniferous_Forest.bin"
+    },
+    {
+      "bytes": 1904,
+      "sha256": "A1AA98B3DB2111B9F72630CF1CA8E24140B990819AF30C95829E5E7A3AA944F4",
+      "path": "Scripts/bin/Req_Course_MIX_PS2.bin"
+    },
+    {
+      "bytes": 1904,
+      "sha256": "DF0860AE449D8412921346E452D02E08F3F6FA26C22F1139A4DD642A0AC163A7",
+      "path": "Scripts/bin/Req_Course_MIX_PSP.bin"
+    },
+    {
+      "bytes": 6428,
+      "sha256": "F3E30A3EFBBC0CBAE73DECCC03A57F3FEBECFD4CC6EB16085AB49EEC786630D7",
+      "path": "Scripts/bin/Req_Deep_Lake_r.bin"
+    },
+    {
+      "bytes": 3752,
+      "sha256": "9FB6BBC831FF79B52CE0487852ADFDC5C97DF1BA22D708EDE33D380C180F7E44",
+      "path": "Scripts/bin/Req_Deep_Lake.bin"
+    },
+    {
+      "bytes": 5508,
+      "sha256": "ADC242EC4F563FE3207E12AE90D7FE0057A1D53C15958D7B02379729AFC84D82",
+      "path": "Scripts/bin/Req_Desert_r.bin"
+    },
+    {
+      "bytes": 4528,
+      "sha256": "49A34A86A85640ECC1CBA07482281004A81987F188021AB58E934A42370A680F",
+      "path": "Scripts/bin/Req_Desert.bin"
+    },
+    {
+      "bytes": 4040,
+      "sha256": "608032D54338C9BA56C36D1E16A22D58CFE3A2734EBA0B8559020AFEC3C78F2C",
+      "path": "Scripts/bin/Req_Easter_Island_r.bin"
+    },
+    {
+      "bytes": 10376,
+      "sha256": "98A9F919C22D981584D038B3D92E96F6C98E9B1BCAD0D3F0660188DE632125DB",
+      "path": "Scripts/bin/Req_Easter_Island.bin"
+    },
+    {
+      "bytes": 6128,
+      "sha256": "C813978E047737A86EE9FB94C770085CF860006A000D617BA4CFCAFEFED7B319",
+      "path": "Scripts/bin/Req_Florida_r.bin"
+    },
+    {
+      "bytes": 10080,
+      "sha256": "BF7ED1438EF2B30470EB86873BE7CED159766968790C179A25A6F8AFE7BF94B4",
+      "path": "Scripts/bin/Req_Florida.bin"
+    },
+    {
+      "bytes": 7976,
+      "sha256": "61E5B44FBDA295B1BDD3754CE2A26B328082EA779919A335A0F6C0BA32DFF686",
+      "path": "Scripts/bin/Req_Ghost_Forest_r.bin"
+    },
+    {
+      "bytes": 6004,
+      "sha256": "21245D99D261B0CBD527122DC9BAAA0E47AB19FF96BFD8275BEC81EC335D528C",
+      "path": "Scripts/bin/Req_Ghost_Forest.bin"
+    },
+    {
+      "bytes": 6732,
+      "sha256": "F1F2798144A03F90AE5B550132EDE6C582D2A152F41599CDD13E7DF6EAE179D0",
+      "path": "Scripts/bin/Req_Grand_Canyon_r.bin"
+    },
+    {
+      "bytes": 6036,
+      "sha256": "73113B124FF358C1FF07F116487781CBF698E00DCAF9F8EDAAD10F3B23258565",
+      "path": "Scripts/bin/Req_Grand_Canyon.bin"
+    },
+    {
+      "bytes": 6368,
+      "sha256": "8D1D576D4507BCCC17A06AA4F592D5741D953DB46DAC7A46B31E2832A4030894",
+      "path": "Scripts/bin/Req_Imperial_Avenue_r.bin"
+    },
+    {
+      "bytes": 6152,
+      "sha256": "5C016BB09574681D295B2DAC04DE0E59AE4593041760830C9D26240E8D3D39A8",
+      "path": "Scripts/bin/Req_Imperial_Avenue.bin"
+    },
+    {
+      "bytes": 6736,
+      "sha256": "2C52527077414611A8E5ABACDEB16A3D67B6E8B916DC1F1BCEC6BD23CC9B4873",
+      "path": "Scripts/bin/Req_Industrial_Complex_r.bin"
+    },
+    {
+      "bytes": 5872,
+      "sha256": "50023641BE49FBB7126405EAA2D71705D1482AC3D48C0BFC5BCED3A5157DDAE2",
+      "path": "Scripts/bin/Req_Industrial_Complex.bin"
+    },
+    {
+      "bytes": 4120,
+      "sha256": "92CCFCF1983D66CE38C0A44213F24FA292B2AFC961F837CC555436315C82EF6D",
+      "path": "Scripts/bin/Req_Las_Vegas_r.bin"
+    },
+    {
+      "bytes": 8040,
+      "sha256": "DD9AD1D5EC28BF473674AB47959A2F0682CD02EB28E2C2296EC127FE58795EAC",
+      "path": "Scripts/bin/Req_Las_Vegas.bin"
+    },
+    {
+      "bytes": 6956,
+      "sha256": "217CB568F750C6DF354F1DFBA53E760F0046037DC7820357F9002C213DEE79B6",
+      "path": "Scripts/bin/Req_MachuPicchu_r.bin"
+    },
+    {
+      "bytes": 8484,
+      "sha256": "CCE6BFCE06E817EF00AC1AF2178514E0DC8436E96CC3DD79ABFC12B9C4ACEE3E",
+      "path": "Scripts/bin/Req_MachuPicchu.bin"
+    },
+    {
+      "bytes": 7264,
+      "sha256": "AC19A546131BADA2769ACCB89BAAE67330364C82B047537685167255F38A00DC",
+      "path": "Scripts/bin/Req_Maya_r.bin"
+    },
+    {
+      "bytes": 10684,
+      "sha256": "3E4986CCE256651EAE828917BD335FC527B8AFF4554BA3D18DA3F9DB1856890F",
+      "path": "Scripts/bin/Req_Maya.bin"
+    },
+    {
+      "bytes": 3700,
+      "sha256": "93F9C8627118B33A3ED87675AE63644BEB26C7116F7CCA6840BCEEA274E83DAC",
+      "path": "Scripts/bin/Req_Metropolis_r.bin"
+    },
+    {
+      "bytes": 8204,
+      "sha256": "89974CBC03C0546996728B4056D4A55B64B36F645DD7A7EA183D4958CE412694",
+      "path": "Scripts/bin/Req_Metropolis.bin"
+    },
+    {
+      "bytes": 4784,
+      "sha256": "72F4F550FCDB23ECC1D2C737985A627EBD03956647EF6F883F211BE6DFEA6A6D",
+      "path": "Scripts/bin/Req_New_York_r.bin"
+    },
+    {
+      "bytes": 8604,
+      "sha256": "32621031A9862BD85B6DBA45DD50721BDB3AA0BB3BC599C73DB82BD2CE5DE366",
+      "path": "Scripts/bin/Req_New_York.bin"
+    },
+    {
+      "bytes": 6328,
+      "sha256": "6AEF64C6C28795BBD8A8165B12CD2E37564F7802D65E2715EDBEB81DA6B6425F",
+      "path": "Scripts/bin/Req_Niagara_r.bin"
+    },
+    {
+      "bytes": 6436,
+      "sha256": "18F56535671CFADB4E01A6493857668ADD3FA9D05544D1EF2101FD39F1967E07",
+      "path": "Scripts/bin/Req_Niagara.bin"
+    },
+    {
+      "bytes": 8760,
+      "sha256": "96472032716B710C25804594F1B809981F01154178745DF598B484D7BD0A8912",
+      "path": "Scripts/bin/Req_Palm_Beach_r.bin"
+    },
+    {
+      "bytes": 3756,
+      "sha256": "C2B3B05589AE3A474B6B5AC21EF13FAFB9E79991B5C113D62E88C1A3C2057A13",
+      "path": "Scripts/bin/Req_Palm_Beach.bin"
+    },
+    {
+      "bytes": 4484,
+      "sha256": "A65C5DA5E6A5D157EE6CE7EE9A796C6E17636693E3A84CEC79E257FD8DB4706D",
+      "path": "Scripts/bin/Req_Prince_Edward_r.bin"
+    },
+    {
+      "bytes": 9820,
+      "sha256": "223422B50392ECF69F8914F1CCB04A8B4FF33F7400AA6FA3D5643022FDEA3DC1",
+      "path": "Scripts/bin/Req_Prince_Edward.bin"
+    },
+    {
+      "bytes": 3760,
+      "sha256": "17222E52D2AF3968E2BB01CA2E32D85108871DCE222E6E698840D251D099FA8C",
+      "path": "Scripts/bin/Req_San_Francisco_r.bin"
+    },
+    {
+      "bytes": 4580,
+      "sha256": "1DFAE54B974DD6A70B7490C47CB1F6CF2DCEB4D18155FD428FDD1F7CF3CAFC26",
+      "path": "Scripts/bin/Req_San_Francisco.bin"
+    },
+    {
+      "bytes": 7864,
+      "sha256": "B68F71A7DE6D6D26C05B85757BB3F89349AE781B52ABD93737EF523D5A9FEBB8",
+      "path": "Scripts/bin/Req_Sequoia_r.bin"
+    },
+    {
+      "bytes": 6168,
+      "sha256": "D0EDEB7A3C6DEE076DBF1A23046E15785535CC6B159DEEFF66E132084F4B6096",
+      "path": "Scripts/bin/Req_Sequoia.bin"
+    },
+    {
+      "bytes": 4636,
+      "sha256": "9C1CE16BD62904961CAB1C01B152E76D1FAD5EAC4579FE98B034BF67EEFE886C",
+      "path": "Scripts/bin/Req_Snow_Mountain_r.bin"
+    },
+    {
+      "bytes": 6364,
+      "sha256": "A1723CE27EA46CCC9AFE635D0E474D6FDA3800317AA6DBC337056665BCE3EC88",
+      "path": "Scripts/bin/Req_Snow_Mountain.bin"
+    },
+    {
+      "bytes": 6800,
+      "sha256": "F18F760B6926759A999C5AA970A4AFE2A45804DF07B7F337875B6A203BE30F47",
+      "path": "Scripts/bin/Req_Tulip_Garden_r.bin"
+    },
+    {
+      "bytes": 6848,
+      "sha256": "DDED9181B98E3841377BA0DBC8638BAE71F68054BA51A7069DF690F4196AFD42",
+      "path": "Scripts/bin/Req_Tulip_Garden.bin"
+    },
+    {
+      "bytes": 6412,
+      "sha256": "101C62B8FAF77C2D11BDDBEC32A8EB2A75C92825009C6DED5173EA2BE321237A",
+      "path": "Scripts/bin/Req_Yose_r.bin"
+    },
+    {
+      "bytes": 4736,
+      "sha256": "7DAB635E1FCF6CA116C01811F3CA536F7CBF06702421E2019CE8A5EA85EE860B",
+      "path": "Scripts/bin/Req_Yose.bin"
+    },
+    {
+      "bytes": 1912,
+      "sha256": "12B423F45871199BCA27A0E57B817DFFE2A275D3561E02BC4866ADB1C139E3B9",
+      "path": "Scripts/bin/Request_Course_OR2.bin"
+    },
+    {
+      "bytes": 1904,
+      "sha256": "6F757C4CE3D49F2C66C8CCF61509323E15FEB09A17F194CD5F42B6DD01941103",
+      "path": "Scripts/bin/Request_Course_SP.bin"
+    },
+    {
+      "bytes": 14504,
+      "sha256": "DD18505BD0286226FC72827363A0EE51EFFE159644D9F6FDC6AD57F7054B7992",
+      "path": "Scripts/bin/SP_goals.bin"
+    },
+    {
+      "bytes": 7304,
+      "sha256": "06B153E8B762A18720B50E8153E66A2221AEB69C62F6BC76052AB1B3521158E6",
+      "path": "Scripts/bin/SP_Reverse_goals.bin"
+    },
+    {
+      "bytes": 868,
+      "sha256": "C745BB4281BD7642619E56DA8AED8F109EDAE5030E3075CD8525EF00EC9782D7",
+      "path": "Scripts/bin/Test_Course.bin"
+    },
+    {
+      "bytes": 1900,
+      "sha256": "4B30AF8640B66B3245D5B57F59BE117CDACCFE57356E1191C27134595C770AA5",
+      "path": "Scripts/bin/TracksideCameras.bin"
+    },
+    {
+      "bytes": 48322,
+      "sha256": "7B516BEFD1ABB6BF57C4DC325BE5B299ABA693F124AD30B1CA438C911C5114CA",
+      "path": "BK/OBJ/obj_course_obj_bk_alas_pmt.sz"
+    },
+    {
+      "bytes": 47110,
+      "sha256": "03F4EF82EE085D3FCAA84799200F83E85F88F332FA05E03CAF4B5CD4DCCB67C4",
+      "path": "BK/OBJ/obj_course_obj_bk_alpi_pmt.sz"
+    },
+    {
+      "bytes": 47373,
+      "sha256": "941A1261135CCC41F44771E02EE78D6FBD2A1074B5678166280EE18B8D59E51F",
+      "path": "BK/OBJ/obj_course_obj_bk_amaz_pmt.sz"
+    },
+    {
+      "bytes": 50047,
+      "sha256": "DBFAD2CEDE27FB426FE15707CFC96B03D1E1625F1F801F90D585205D189598C3",
+      "path": "BK/OBJ/obj_course_obj_bk_beac_pmt.sz"
+    },
+    {
+      "bytes": 5516,
+      "sha256": "1A1AFA4F4FE7F0504156B6844CC694D9B06F62C41030BA6EA9B62D798D8563FF",
+      "path": "BK/OBJ/obj_course_obj_bk_cape_pmt.sz"
+    },
+    {
+      "bytes": 48702,
+      "sha256": "04DAE0B646D259CDDF7C379AFED0E29656AD762EB0FEF424939E165C3664E5F3",
+      "path": "BK/OBJ/obj_course_obj_bk_cast_pmt.sz"
+    },
+    {
+      "bytes": 66709,
+      "sha256": "B670FE0E3A5E173594FE5829C9D335BF176B2825E1F1F520B4DA46E1E5A13370",
+      "path": "BK/OBJ/obj_course_obj_bk_clou_pmt.sz"
+    },
+    {
+      "bytes": 48906,
+      "sha256": "6096EF87E5FCAB01BFB7AA52F3525F0FC6A77D599E5D1D13F853A9BE29CFC1FC",
+      "path": "BK/OBJ/obj_course_obj_bk_dese_pmt.sz"
+    },
+    {
+      "bytes": 27111,
+      "sha256": "851F90E797EA9AABF9462FB725A31B4C85B78C1BC57C88FE421BE3A075FA756E",
+      "path": "BK/OBJ/obj_course_obj_bk_east_pmt.sz"
+    },
+    {
+      "bytes": 27711,
+      "sha256": "19AA09F80CC0FC3A454055C2C28760FD4611B6F3A28DBFC21A32D45A2A187325",
+      "path": "BK/OBJ/obj_course_obj_bk_flor_pmt.sz"
+    },
+    {
+      "bytes": 48037,
+      "sha256": "27D9A8DE0C576FADEC4FAE05A536E8B4A82039C42945F8505392FB78B6E36B18",
+      "path": "BK/OBJ/obj_course_obj_bk_fore_pmt.sz"
+    },
+    {
+      "bytes": 48157,
+      "sha256": "1E46CC5055D6F778E6A817EADC0E15785B02F92282648C2DFDEE78A1B6FE1D7D",
+      "path": "BK/OBJ/obj_course_obj_bk_ghos_pmt.sz"
+    },
+    {
+      "bytes": 47569,
+      "sha256": "70F1E3553CA229CC28C60FF576CD5F665507C9C62EC6BE42B5A489BB77619B47",
+      "path": "BK/OBJ/obj_course_obj_bk_gran_pmt.sz"
+    },
+    {
+      "bytes": 27847,
+      "sha256": "42D83CBA91B96BCFF4FB2E2CCE16D3A59A831F1898CEFAEE05C5FB56EE4F65D3",
+      "path": "BK/OBJ/obj_course_obj_bk_impe_pmt.sz"
+    },
+    {
+      "bytes": 68527,
+      "sha256": "D0C48B4E9B031B92D3FE2BC8E47E9554BCCAD7CF29537DF72BDD5EF16550121A",
+      "path": "BK/OBJ/obj_course_obj_bk_indu_pmt.sz"
+    },
+    {
+      "bytes": 48486,
+      "sha256": "276DF5E71E44F47BA7915599ED44485A1985FD4C91C94B965B3C885AE0AFCC00",
+      "path": "BK/OBJ/obj_course_obj_bk_lake_pmt.sz"
+    },
+    {
+      "bytes": 47730,
+      "sha256": "317709CB00E23D337AB101523AAEBB1B18E80998F710AA42EFA1691CA511D4B0",
+      "path": "BK/OBJ/obj_course_obj_bk_lasv_pmt.sz"
+    },
+    {
+      "bytes": 66197,
+      "sha256": "CAE32874874233634D009AA48015724AE674A5744D3C9FFBC9726544A0F220D1",
+      "path": "BK/OBJ/obj_course_obj_bk_mach_pmt.sz"
+    },
+    {
+      "bytes": 49195,
+      "sha256": "B908D7DC5990574D4811E4511E8F5256DD0E04B4D374197ED56DB5D45B64728E",
+      "path": "BK/OBJ/obj_course_obj_bk_maya_pmt.sz"
+    },
+    {
+      "bytes": 27664,
+      "sha256": "AA5065918543B96225CF59897B661BFDF8CE858062C1123E53246763EE5A0F63",
+      "path": "BK/OBJ/obj_course_obj_bk_metr_pmt.sz"
+    },
+    {
+      "bytes": 26558,
+      "sha256": "5CE6F88954AD005CB564DBEE4C4334B68A87B3EE39E917C5B06221B9E4D0D3A2",
+      "path": "BK/OBJ/obj_course_obj_bk_newy_pmt.sz"
+    },
+    {
+      "bytes": 58063,
+      "sha256": "FD18C551C4DBCE097A96DEF856CEEB41808E1DDBE71B640B9334E2F83B528DFC",
+      "path": "BK/OBJ/obj_course_obj_bk_niag_pmt.sz"
+    },
+    {
+      "bytes": 13478,
+      "sha256": "A98DE47F7D4000E06ED14B4ECB43A14F089872A9C048DC4F065799191C332A93",
+      "path": "BK/OBJ/obj_course_obj_bk_palm_pmt.sz"
+    },
+    {
+      "bytes": 26558,
+      "sha256": "5CE6F88954AD005CB564DBEE4C4334B68A87B3EE39E917C5B06221B9E4D0D3A2",
+      "path": "BK/OBJ/obj_course_obj_bk_prin_pmt.sz"
+    },
+    {
+      "bytes": 47780,
+      "sha256": "D3D736226E670F1ECCDF9E978085A744042955FE6C343D134D08019E2127AFBF",
+      "path": "BK/OBJ/obj_course_obj_bk_ruin_pmt.sz"
+    },
+    {
+      "bytes": 58746,
+      "sha256": "EC75DBB22F72F19012165A6A5F80C1B29CAD5DE8D5DD387B85A5924BF0D12591",
+      "path": "BK/OBJ/obj_course_obj_bk_sanf_pmt.sz"
+    },
+    {
+      "bytes": 66216,
+      "sha256": "8C8828A78E1AF3C3805957F7E2CF4BA380E6E4AC2BE2CD96DB5ADBFC9430B523",
+      "path": "BK/OBJ/obj_course_obj_bk_sequ_pmt.sz"
+    },
+    {
+      "bytes": 68144,
+      "sha256": "7646C8C26571F6B3FEC2C4D0578D8D0F60BD1C13C5C4C36B189732CE7DE042F1",
+      "path": "BK/OBJ/obj_course_obj_bk_snow_pmt.sz"
+    },
+    {
+      "bytes": 28665,
+      "sha256": "A96E8659EC2EB912EA390A9A4C646E9C66715B3E21475D7F85D145FC3D8F1EA0",
+      "path": "BK/OBJ/obj_course_obj_bk_tuli_pmt.sz"
+    },
+    {
+      "bytes": 47469,
+      "sha256": "125217F4C85B8092CDBE4D7ADE34BD2B4C44C6F39747C43CFFE9811366C7B3C3",
+      "path": "BK/OBJ/obj_course_obj_bk_yose_pmt.sz"
+    }
+  ]
+}

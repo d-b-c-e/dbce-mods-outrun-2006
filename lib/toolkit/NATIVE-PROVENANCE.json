@@ -5,11 +5,11 @@
   "nativeVersion": "0.6.0",
   "architecture": "x86",
   "exportCount": 41,
-  "sourceCommit": "dd0ef20ad0cdaccc7a67f10a707dbd2a27a6efe9",
+  "sourceCommit": "f8f0619b5588f2d11b44f4becd4198775d4a8bcf",
   "archive": "dbce-wheel-mod-toolkit-0.13.0.zip",
   "archiveSha256": "2f73f5427465cd85e8d969ee7ecaf7d9c2cb08ed923da80c4ac7c7234af1b0cc",
-  "reason": "Strict GUID selection prevents fallback to another actuator after disconnect or open refusal.",
-  "preserved": "force_model.h, force_profile.h, forza_packet.h, dinput_proxy.h, force-profiles.ini remain byte-identical to the existing v0.8.0 baseline.",
+  "reason": "Matched reviewed shutdown build: stop effects, join actual watchdog completion, then release resources. Strict GUID selection retained.",
+  "preserved": "All existing headers, force model, profiles and encoder are byte-identical to the consumer integration base 8a84b9d; existing consumer edits and historical sync hashes remain preserved.",
   "files": [
     {
       "archivePath": "native/include/wheelffb.h",
@@ -17,9 +17,33 @@
       "path": "include/wheelffb.h"
     },
     {
-      "archivePath": "native/x86/WheelFfb.dll",
-      "sha256": "95db6175354db9018ef6143291e293e75864d96919c22928aa19e6d11c8cbe31",
-      "path": "native/x86/WheelFfb.dll"
+      "sha256": "4f7ffbb590c30e2a8d33f2e7a3d7e8c770bdd2466053a2333d67c55d98bb08b4",
+      "path": "native/x86/WheelFfb.dll",
+      "artifactPath": "artifacts/x86/WheelFfb.dll"
     }
-  ]
+  ],
+  "sourceTree": "d9f59422cff93383f9cf27f3cd641fd2adf00a35",
+  "artifactOrigin": "Reviewed local build of published source; not the v0.13.0 release archive DLL. Archive fields describe retained header baseline only.",
+  "buildEvidence": {
+    "compiler": "19.44.35229",
+    "toolset": "14.44.35207",
+    "windowsSDK": "10.0.26100.0",
+    "manifestSha256": "1f62a7f6269da488076a67c1b1b62050db49dde45517a50cc47b131f25b15b37",
+    "inputReceiptSha256": "47ab091abeba8a68b5f9bd545686fe9d5160c7e047d777e4413694bfbcafe07d",
+    "sourceFilesVerified": 146,
+    "x86InputsVerified": 301,
+    "receiptHashesVerified": 34,
+    "bytes": 166400,
+    "compileFlags": [
+      "/LD",
+      "/O2",
+      "/W4",
+      "/EHsc",
+      "/DNDEBUG",
+      "/sourceDependencies"
+    ],
+    "staticCRT": true,
+    "generalBitReproducibilityProven": false
+  },
+  "adoptionStatus": "Qualified PC review candidate: consumer never calls SetHoldTimeoutMs (only worker creation route). General API initialization-publication race remains a toolkit follow-up. Independent review before promotion."
 }

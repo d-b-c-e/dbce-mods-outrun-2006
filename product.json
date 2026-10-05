@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "productId": "outrun2006-c2c-pc",
+  "displayName": "DBCE Mods: OutRun 2006",
+  "game": "OutRun 2006: Coast 2 Coast PC",
+  "canonicalRepository": "d-b-c-e/dbce-mods-outrun-2006",
+  "repositoryUrl": "https://github.com/d-b-c-e/dbce-mods-outrun-2006",
+  "repositoryId": 1163595970,
+  "legacyRepositoryAliases": [ "d-b-c-e/OutRun2006Tweaks-FFB" ],
+  "repositoryRenameStatus": "completed; existing repository renamed in place on 2026-10-01",
+  "runtime": "OutRun2006Tweaks-FFB",
+  "executable": "OR2006C2C.EXE",
+  "architecture": "x86",
+  "setup": "Install.bat",
+  "settings": "OutRun2006Tweaks.ini",
+  "releasePolicy": "one immutable package manifest; retain distinct runtime and installer source identities",
+  "features": {
+    "wheel": { "implemented": true, "accepted": false, "status": "physical driving acceptance pending" },
+    "forceFeedback": { "implemented": true, "accepted": false, "status": "default Off; steering source and scale unresolved" },
+    "telemetry": { "implemented": true, "accepted": false, "status": "Forza UDP and shared memory; receiver acceptance pending" },
+    "tripleScreen": { "implemented": false, "accepted": false, "status": "camera hooks exist; simultaneous calibrated views unproven" },
+    "sessionRecording": { "implemented": false, "accepted": false, "status": "no bounded session recorder verified" },
+    "drivingInputPlayback": { "implemented": false, "accepted": false, "status": "no driving-input replay verified" }
+  },
+  "legacy": {
+    "redux": "related configuration and visual project; not merged or shipped by this package",
+    "configurationMigration": "retain existing settings byte for byte; seed only missing defaults; no conversion or rename",
+    "excludedGames": [ "OutRun CannonBall", "OutRun 2 SP SDX" ]
+  }
+}

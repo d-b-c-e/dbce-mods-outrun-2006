@@ -21,6 +21,8 @@ $files = @(Get-ChildItem -LiteralPath $package -File | ForEach-Object { @{name=$
 [IO.File]::WriteAllText((Join-Path $game 'dinput8.dll'), 'old proxy')
 [IO.File]::WriteAllText((Join-Path $game 'OutRun2006Tweaks.ini'), "; owner tune`r`n[FFB]`r`nDirectInputFFB=false`r`nUnknown=retain`r`n")
 [IO.File]::WriteAllText((Join-Path $game 'OutRun2006Tweaks.bindings.ini'), 'owner bindings')
+[IO.File]::WriteAllText((Join-Path $game 'ReduxConfig.json'), 'owner Redux configuration')
+$originalRedux = Hash (Join-Path $game 'ReduxConfig.json')
 $originalConfig = Hash (Join-Path $game 'OutRun2006Tweaks.ini')
 $originalBindings = Hash (Join-Path $game 'OutRun2006Tweaks.bindings.ini')
 $oldProxy = Hash (Join-Path $game 'dinput8.dll')
@@ -32,6 +34,7 @@ $result = & $installer -GameDirectory $game -PackageDirectory $package -AllowUnk
 Check ((Hash (Join-Path $game 'dinput8.dll')) -eq (Hash (Join-Path $package 'dinput8.dll'))) 'Proxy not installed'
 Check ((Hash (Join-Path $game 'OutRun2006Tweaks.ini')) -eq $originalConfig) 'Owner config changed'
 Check ((Hash (Join-Path $game 'OutRun2006Tweaks.bindings.ini')) -eq $originalBindings) 'Owner bindings changed'
+Check ((Hash (Join-Path $game 'ReduxConfig.json')) -eq $originalRedux) 'Redux settings changed'
 Check (Test-Path -LiteralPath (Join-Path $game 'force-profiles.ini')) 'Fresh profile not seeded'
 Check ((Hash (Join-Path $result.BackupDirectory 'dinput8.dll')) -eq $oldProxy) 'Backup not verified'
 & $installer -Action Restore -GameDirectory $game -BackupDirectory $result.BackupDirectory
@@ -49,6 +52,42 @@ finally { $lock.Dispose() }
 Check $failed 'Locked runtime should reject update'
 Check ((Hash (Join-Path $game 'dinput8.dll')) -eq $oldProxy) 'First replacement was not rolled back'
 Check ((Hash (Join-Path $game 'WheelFfb.dll')) -eq $oldOutput) 'Locked runtime changed'
+# New product metadata rejects corruption and another game's identity before writes.
+Copy-Item -LiteralPath (Join-Path $root 'product.json') -Destination $package
+$productPath = Join-Path $package 'product.json'
+$manifestPath = Join-Path $package 'package-manifest.json'
+$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+$manifest.files = @($manifest.files) + @([pscustomobject]@{name='product.json';sha256=(Hash $productPath)})
+$manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $manifestPath
+$product = Get-Content -LiteralPath $productPath -Raw | ConvertFrom-Json
+$product.productId = 'another-game'
+$product | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $productPath
+$failed = $false
+try { & $installer -GameDirectory $game -PackageDirectory $package -AllowUnknownProxy | Out-Null }
+catch { $failed = $_.Exception.Message -eq 'Package hash mismatch: product.json' }
+Check $failed 'Tampered descriptor must be rejected'
+($manifest.files | Where-Object name -eq 'product.json').sha256 = Hash $productPath
+$manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $manifestPath
+$failed = $false
+try { & $installer -GameDirectory $game -PackageDirectory $package -AllowUnknownProxy | Out-Null }
+catch { $failed = $_.Exception.Message -eq 'Unsupported product identity.' }
+Check $failed 'Wrong product must be rejected'
+Check ((Hash (Join-Path $game 'dinput8.dll')) -eq $oldProxy) 'Descriptor rejection changed runtime'
+Copy-Item -LiteralPath (Join-Path $root 'product.json') -Destination $productPath -Force
+($manifest.files | Where-Object name -eq 'product.json').sha256 = Hash $productPath
+$manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $manifestPath
+$result = & $installer -GameDirectory $game -PackageDirectory $package -AllowUnknownProxy
+Check ((Hash (Join-Path $game 'ReduxConfig.json')) -eq $originalRedux) 'Descriptor install changed Redux settings'
+& $installer -Action Restore -GameDirectory $game -BackupDirectory $result.BackupDirectory
+# Canonical metadata is additive. A historical product descriptor and schema-1
+# manifest remain accepted without repository metadata or a settings migration.
+$legacyProduct = [ordered]@{schemaVersion=1;productId='outrun2006-c2c-pc';displayName='OutRun 2006: Coast 2 Coast PC mod';runtime='OutRun2006Tweaks-FFB';executable='OR2006C2C.EXE';architecture='x86'}
+$legacyProduct | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $productPath
+($manifest.files | Where-Object name -eq 'product.json').sha256 = Hash $productPath
+$manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $manifestPath
+$legacyResult = & $installer -GameDirectory $game -PackageDirectory $package -AllowUnknownProxy
+Check ((Hash (Join-Path $game 'OutRun2006Tweaks.ini')) -eq $originalConfig) 'Legacy product descriptor changed owner settings'
+& $installer -Action Restore -GameDirectory $game -BackupDirectory $legacyResult.BackupDirectory
 [IO.File]::AppendAllText((Join-Path $package 'dinput8.dll'), 'tamper')
 $failed = $false
 try { & $installer -GameDirectory $game -PackageDirectory $package -AllowUnknownProxy | Out-Null }

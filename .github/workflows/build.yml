@@ -1,57 +1,68 @@
+name: Offline build and review package
+
+# Remains opt-in until the corrected pipeline has been reviewed and run safely.
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
 
 jobs:
   build:
     runs-on: windows-2022
-    strategy:
-      matrix:
-        arch: [ Win32 ]
-        build_type: [ Release ]
-
+    timeout-minutes: 45
     steps:
-      - name: Checkout
+      - name: Checkout public source
         uses: actions/checkout@v4.1.7
         with:
           submodules: recursive
+          persist-credentials: false
 
-      - name: Configure
+      - name: Configure x86 Release
         run: |
-          mkdir build
-          cd build
-          cmake -G "Visual Studio 17 2022" -A ${{matrix.arch}} ..
-          
-      - name: Add older VC2022 redist workaround to safetyhook
-        shell: pwsh
-        run: |
-          (Get-Content build/_deps/safetyhook-build/safetyhook.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build/_deps/safetyhook-build/safetyhook.vcxproj
-          (Get-Content build/_deps/zydis-build/Zydis.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build/_deps/zydis-build/Zydis.vcxproj
-          (Get-Content build/_deps/zydis-build/zycore/Zycore.vcxproj) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content build/_deps/zydis-build/zycore/Zycore.vcxproj
+          $ErrorActionPreference = 'Stop'
+          cmake -S . -B build -G "Visual Studio 17 2022" -A Win32
+          if ($LASTEXITCODE -ne 0) { throw 'CMake configure failed' }
 
-      - name: Zero out SDL_gameinputjoystick.c (https://github.com/libsdl-org/SDL/issues/11487 / https://github.com/actions/runner-images/issues/10980)
-        shell: pwsh
+      - name: Retain older VC2022 redist workaround
         run: |
-          Set-Content -Path build/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ""
-          (Get-Content build/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content build/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
-      
-      - name: Build
+          $ErrorActionPreference = 'Stop'
+          foreach ($project in @('build/_deps/safetyhook-build/safetyhook.vcxproj', 'build/_deps/zydis-build/Zydis.vcxproj', 'build/_deps/zydis-build/zycore/Zycore.vcxproj')) {
+            (Get-Content -LiteralPath $project) -replace 'ZYCORE_STATIC_BUILD', '_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR;ZYCORE_STATIC_BUILD' | Set-Content -LiteralPath $project
+          }
+
+      - name: Retain runner SDL GameInput workaround
         run: |
-          cmake --build build --config ${{matrix.build_type}}
-          
-      - name: Copy settings
-        shell: pwsh
+          $ErrorActionPreference = 'Stop'
+          Set-Content -LiteralPath build/_deps/sdl-src/src/joystick/gdk/SDL_gameinputjoystick.c -Value ''
+          (Get-Content -LiteralPath build/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h) -replace '#define SDL_JOYSTICK_GAMEINPUT 1', '/* #undef SDL_JOYSTICK_GAMEINPUT */' | Set-Content -LiteralPath build/_deps/sdl-build/include-config-release/build_config/SDL_build_config.h
+
+      - name: Build public mod only
         run: |
-          cp OutRun2006Tweaks.ini build/bin/OutRun2006Tweaks.ini
-          cp OutRun2006Tweaks.lods.ini build/bin/OutRun2006Tweaks.lods.ini
-          
-      - name: Download OR2006C2C
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -Uri https://github.com/emoose/OutRun2006Tweaks/releases/download/v0.1/OR2006C2C.EXE -OutFile build/bin/OR2006C2C.exe
-          
-      - name: Upload
+          $ErrorActionPreference = 'Stop'
+          cmake --build build --config Release --target outrun2006tweaks
+          if ($LASTEXITCODE -ne 0) { throw 'CMake build failed' }
+
+      - name: Offline fixtures and package checks
+        run: ./tools/ci/Invoke-CiChecks.ps1
+
+      - name: Stage allowlisted review archive
+        run: ./tools/ci/Prepare-CiArtifact.ps1 -PackageDirectory build/ci-review-package -ArtifactDirectory build/ci-artifact
+
+      - name: Verify final artifact privacy
+        run: ./tools/ci/Assert-CiArtifact.ps1 -ArtifactDirectory build/ci-artifact
+
+      - name: Upload reviewed mod files only
+        if: ${{ success() }}
         uses: actions/upload-artifact@v4.3.3
         with:
-          name: outrun2006tweaks-${{ github.sha }}
-          path: build/bin/
+          name: outrun2006-ci-review-${{ github.sha }}
+          path: |
+            build/ci-artifact/outrun2006-ci-review.zip
+            build/ci-artifact/artifact-inventory.json
+          if-no-files-found: error
+          retention-days: 7

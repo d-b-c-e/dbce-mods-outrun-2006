@@ -43,6 +43,9 @@ static int __cdecl LastError() { return static_cast<int>(0x80070005); }
 int main()
 {
     using namespace FFB;
+    ConsumerLifecycle::hostVerified = true;
+    ConsumerLifecycle::actuatorReadiness = [](void* window) { return window == reinterpret_cast<void*>(1); };
+    ConsumerLifecycle::Runtime().SetIdleCallback(FFB::LifecycleIdle);
     HWND hwnd = reinterpret_cast<HWND>(1);
     Game::hWnd_ptr = &hwnd;
     GameState mode = STATE_GAME;

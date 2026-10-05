@@ -20,9 +20,9 @@ vendored `WheelFfb.dll`.
 [dbce-wheel-mod-toolkit](https://github.com/d-b-c-e/dbce-wheel-mod-toolkit),
 pinned in `lib/toolkit/VERSION`. It carries:
 
-**Component override (2026-09-17):** `NATIVE-VERSION` and
+**Component override (2026-10-02 candidate):** `NATIVE-VERSION` and
 `NATIVE-PROVENANCE.json` pin only `wheelffb.h` and the x86 DLL to official v0.13.0
-(native 0.6.0) for strict GUID selection. The model, profiles and encoder remain
+(native 0.6.0 ABI) for strict GUID selection, with the matched DLL shutdown source override `f8f0619`. See `docs/NATIVE-SHUTDOWN-ADOPTION.md`. The model, profiles and encoder remain
 v0.8.0 unchanged. Read `docs/NATIVE-PIN-2026-09-17.md` before syncing.
 
 | Path | What it is |
@@ -59,8 +59,12 @@ Close the game before deploying; it locks the DLL.
 
 **Never hard-kill the game while a wheel is attached.** A running DirectInput
 constant-force effect is not released when the process dies, so the base keeps
-applying the last torque and the next launch reads as "no force feedback". Exit
-through the game, or Alt+F4 — both are covered by the exit guards.
+applying the last torque and the next launch reads as "no force feedback". Use
+normal game exit. The isolated lifecycle candidate covers the inspected exact-build
+loop-return route, with device-free evidence only; see
+[the lifecycle candidate](docs/CONSUMER-LIFECYCLE-CANDIDATE.md). It does not promise
+cleanup on forced termination, crashes or every session-ending path. Keep FFB Off
+until the matched native shutdown and physical acceptance gates are complete.
 
 Logs land next to the game exe: `OutRun2006Tweaks.log` (the mod) and
 `OutRun2006Tweaks.ffb.log` (the DirectInput layer; `DBCE_FFB_LOG=0` silences it).

@@ -18,6 +18,10 @@
 #include <cstdio>
 #include <algorithm>
 #include <string>
+#include <array>
+#include <memory>
+#include <new>
+#include <exception>
 
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
@@ -28,6 +32,7 @@
 #include "force_profile.h" // shared force model + versioned tuning profiles
 #include "overlay/overlay.hpp"
 #include "wheel_ui_snapshot.hpp"
+#include "consumer_lifecycle.hpp"
 
 // External vibration data from hooks_forcefeedback.cpp
 extern float VibrationLeftMotor;
@@ -260,6 +265,8 @@ namespace Telemetry
 
 	void SetEnabled(bool enabled)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		Settings::TelemetryEnabled = enabled;
 		if (!enabled)
 		{
@@ -272,6 +279,8 @@ namespace Telemetry
 
 	const char* UiStatus()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return "Stopped for game exit";
 		if (!Settings::TelemetryEnabled) return "Off";
 		if (lastSendFailed) return "Unavailable - UDP send failed. See Help for the log.";
 		if (lastSendTick && GetTickCount() - lastSendTick < 1000) return "Sending (receiver not confirmed)";
@@ -307,7 +316,7 @@ namespace FFB
 	static bool periodicsActive = false;
 
 	// Panic flag: once set (process exit path), no further DI output is issued
-	static volatile bool panicStopped = false;
+	static bool panicStopped = false;
 
 	// The shared force model, when FFBProfile names one.
 	//
@@ -331,7 +340,7 @@ namespace FFB
 	static uint32_t sharedPrevGear = 0;
 
 	// Watchdog: timestamp of last Update() call for staleness detection
-	static volatile DWORD lastUpdateTick = 0;
+	static DWORD lastUpdateTick = 0;
 
 	// Previous frame state for edge detection
 	static uint32_t prevGear = 0;
@@ -419,7 +428,9 @@ namespace FFB
 
 	static void SetConstantForce(LONG magnitude)
 	{
-		if (!ffbLoaded || panicStopped)
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease || !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return;
+		if (!initialized || !ffbLoaded || panicStopped)
 			return;
 		magnitude = std::clamp(magnitude, (LONG)-10000, (LONG)10000);
 		LONG scaled = (LONG)std::clamp((float)magnitude * StrengthScale(), -10000.0f, 10000.0f);
@@ -436,38 +447,20 @@ namespace FFB
 	// than 5% and period less than 10%, and recreates a slot whose handle died.
 	static void UpdatePeriodic(int slot, float magnitude01, float freqHz)
 	{
-		if (slot < 0 || !ffbLoaded || panicStopped)
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease || !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return;
+		if (!initialized || slot < 0 || !ffbLoaded || panicStopped)
 			return;
 		float mag = std::clamp(magnitude01, 0.0f, 1.0f) * StrengthScale();
 		ffb.UpdatePeriodicEffect(slot, (int)(mag * 10000.0f),
 			(int)(std::clamp(freqHz, 1.0f, 100.0f) * 1000.0f));
 	}
 
-	// ---------- Exit-path guards (fixes exit stuck-force) ----------
-
-	// Emergency zero-torque for process exit. The ordering that matters - zero,
-	// stop, STOPALL, actuators off, RESET, unacquire, and only then restore
-	// autocentre, which may only be written on an unacquired device - is inside
-	// the DLL. What still matters here is WHEN: while the game window exists.
-	// By DLL_PROCESS_DETACH the OS has force-unacquired the exclusive device and
-	// none of it reaches the wheel, which is exactly how the stuck-force-after-
-	// Alt+F4 bug happened.
-	void PanicStop()
-	{
-		if (panicStopped)
-			return;
-		panicStopped = true;   // stop Update()/watchdog issuing anything further
-
-		if (!ffbLoaded)
-			return;
-
-		spdlog::info("FFB: PanicStop -- zeroing forces before window teardown");
-		ffb.PanicStop();
-	}
-
 	// Zero all force output without tearing anything down (Alt-Tab, menus, watchdog)
 	void ZeroAllForces()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		if (!initialized || panicStopped)
 			return;
 		if (prevConstantLevel != 0)
@@ -480,60 +473,11 @@ namespace FFB
 		}
 	}
 
-	// WndProc subclass: WM_CLOSE arrives on the game's main thread BEFORE the
-	// window is destroyed (Alt+F4 -> WM_SYSCOMMAND/SC_CLOSE -> WM_CLOSE), so the
-	// device is still acquirable and the zero-force actually lands on the wheel.
-	static const UINT_PTR FFB_SUBCLASS_ID = 0x0FFB;
-
-	static LRESULT CALLBACK ExitGuardSubclassProc(HWND hWnd, UINT uMsg, WPARAM wParam,
-		LPARAM lParam, UINT_PTR /*uIdSubclass*/, DWORD_PTR /*dwRefData*/)
-	{
-		switch (uMsg)
-		{
-		case WM_CLOSE:
-		case WM_DESTROY:
-		case WM_QUERYENDSESSION:
-			PanicStop();
-			break;
-		case WM_ACTIVATEAPP:
-			if (wParam == FALSE)
-				ZeroAllForces(); // don't hold torque while Alt-Tabbed
-			break;
-		}
-		return DefSubclassProc(hWnd, uMsg, wParam, lParam);
-	}
-
-	// Belt-and-braces for exit paths that skip WM_CLOSE entirely
-	static SafetyHookInline ExitProcess_hk = {};
-	static void WINAPI ExitProcess_Hooked(UINT uExitCode)
-	{
-		PanicStop();
-		ExitProcess_hk.stdcall<void>(uExitCode);
-	}
-
-	static void InstallExitGuards()
-	{
-		HWND hwnd = Game::GameHwnd();
-		if (hwnd && SetWindowSubclass(hwnd, ExitGuardSubclassProc, FFB_SUBCLASS_ID, 0))
-			spdlog::info("FFB: Exit guard installed (WndProc subclass)");
-		else
-			spdlog::warn("FFB: SetWindowSubclass failed -- exit cleanup relies on ExitProcess hook only");
-
-		if (!ExitProcess_hk)
-		{
-			auto* exitProc = GetProcAddress(GetModuleHandleA("kernel32.dll"), "ExitProcess");
-			if (exitProc) ExitProcess_hk = safetyhook::create_inline(exitProc, ExitProcess_Hooked);
-			if (ExitProcess_hk)
-				spdlog::info("FFB: Exit guard installed (ExitProcess hook)");
-			else
-				spdlog::warn("FFB: ExitProcess hook failed");
-		}
-	}
-
 	// Deferred initialization -- called from Update() on first game tick,
 	// because DirectInput needs a valid HWND.
 	static bool LoadApi()
 	{
+		if (!ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return false;
 		if (ffbLoaded) return true;
 
 		// Loaded at runtime from beside this DLL, never imported: a missing
@@ -547,7 +491,14 @@ namespace FFB
 			WheelFfb_Unload(&ffb);
 			return false;
 		}
-		ffbLoaded = true;
+        // Establish process lifetime outside loader lock, before any ABI call.
+        HMODULE pinned = nullptr;
+        if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+            reinterpret_cast<LPCWSTR>(ffb.module), &pinned)) {
+            WheelFfb_Unload(&ffb); // No acquisition or native callback has occurred.
+            return false;
+        }
+        ffbLoaded = true;
 
 		// Keep the DLL's own log beside the game, with everything else worth
 		// reading after a bad session. Set DBCE_FFB_LOG=0 to silence it.
@@ -579,6 +530,8 @@ namespace FFB
 
 	void RefreshUiDevices()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		uiDevices.clear();
 		if (!LoadApi()) { deviceError = "WheelFfb.dll is missing or incompatible"; return; }
 		const int count = ffb.EnumerateDevices();
@@ -596,9 +549,13 @@ namespace FFB
 		if (!initialized) { initAttempted = false; deviceError.clear(); }
 	}
 
-	void SelectionChanged()
+	static void ApplySelectionChanged(bool resumePaused = false)
 	{
-		ZeroAllForces();
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime(), resumePaused);
+        if (!lease) return;
+        // LifecycleIdle already silenced this paused handle. Normal producer
+        // output remains inhibited until its release/reset has completed.
+        if (!resumePaused) ZeroAllForces();
 		if (ffbLoaded && initialized) ffb.FreeDirectInput();
 		initialized = false;
 		initAttempted = false;
@@ -612,8 +569,40 @@ namespace FFB
 		useSharedModel = false;
 	}
 
+    static bool selectionPending = false;
+    void LifecycleIdle()
+    {
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime(), true);
+        if (!lease) return;
+        if (ConsumerLifecycle::Runtime().Current() == ConsumerLifecycle::Gate::Phase::Paused) {
+            if (initialized && ffbLoaded && !panicStopped) ffb.ZeroForces();
+            prevConstantLevel = prevStructLevel = 0;
+            warmupFrames = 0;
+        }
+        const bool resumePaused = ConsumerLifecycle::Runtime().ResumeRequested();
+        if (selectionPending && (resumePaused ||
+            ConsumerLifecycle::Runtime().Current() == ConsumerLifecycle::Gate::Phase::Running)) {
+            selectionPending = false;
+            ApplySelectionChanged(resumePaused);
+        }
+    }
+    void SelectionChanged()
+    {
+        const bool reentrant = ConsumerLifecycle::Gate::Reentrant();
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
+        if (reentrant) {
+            selectionPending = true;
+            ConsumerLifecycle::Runtime().DeferUntilIdle();
+            return;
+        }
+        ApplySelectionChanged();
+    }
+
 	std::string UiDeviceLabel()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return "Stopped for game exit";
 		if (Settings::FFBDeviceGuid == "steering")
 		{
 			const auto input = DInputRemap::ReadUiSnapshot();
@@ -627,6 +616,8 @@ namespace FFB
 
 	bool DeferredInit()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return false;
 		if (initAttempted) return initialized;
 		initAttempted = true;
 		if (!LoadApi()) { deviceError = "WheelFfb.dll is missing or incompatible"; return false; }
@@ -673,6 +664,8 @@ namespace FFB
 			spdlog::info("FFB: force-feedback device [{}]: '{}'", i, name);
 		}
 
+        if (ConsumerLifecycle::Runtime().Current() != ConsumerLifecycle::Gate::Phase::Running ||
+            !ConsumerLifecycle::ReadyForActuator(hwnd)) return false;
 		if (!ffb.InitDirectInput((int)(INT_PTR)hwnd))
 		{
 			deviceError = "Selected wheel is unavailable or refused output. Check it, then Refresh devices";
@@ -680,6 +673,11 @@ namespace FFB
 				(unsigned)ffb.GetLastHResult());
 			return false;
 		}
+        // Init may pump a reentrant close/session request. Mark the handle as
+        // owned for deferred silence, but never start output after that request.
+        initialized = true;
+        if (ConsumerLifecycle::Runtime().Current() != ConsumerLifecycle::Gate::Phase::Running ||
+            !ConsumerLifecycle::ReadyForActuator(hwnd)) return false;
 		ffb.StartEffect();
 
 		// Hardware periodics for road texture and tyre slip. -1 from either means
@@ -687,7 +685,11 @@ namespace FFB
 		// fallback below carries the vibration instead.
 		if (Settings::FFBUsePeriodicEffects)
 		{
+            if (ConsumerLifecycle::Runtime().Current() != ConsumerLifecycle::Gate::Phase::Running ||
+                !ConsumerLifecycle::ReadyForActuator(hwnd)) return false;
 			slotRoadTexture = ffb.CreatePeriodicEffect(25);
+            if (ConsumerLifecycle::Runtime().Current() != ConsumerLifecycle::Gate::Phase::Running ||
+                !ConsumerLifecycle::ReadyForActuator(hwnd)) return false;
 			slotTireSlip = ffb.CreatePeriodicEffect(40);
 			periodicsActive = (slotRoadTexture >= 0 && slotTireSlip >= 0);
 			if (periodicsActive)
@@ -726,11 +728,6 @@ namespace FFB
 			spdlog::info("FFB: using the built-in (legacy) force model");
 		}
 
-		// Exit guards: zero the wheel while the window still exists. Kept here
-		// rather than using the DLL's own InstallExitGuards, because this one
-		// also hooks ExitProcess for the paths that never see WM_CLOSE.
-		InstallExitGuards();
-
 		initialized = true;
 		deviceError.clear();
 		spdlog::info("FFB: Initialization complete (WheelFfb)");
@@ -761,6 +758,8 @@ namespace FFB
 	// been called recently (handles menu transitions where GamePlCar_Ctrl stops).
 	void CheckWatchdog()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		if (!initialized || !ffbLoaded || panicStopped)
 			return;
 
@@ -777,8 +776,30 @@ namespace FFB
 		}
 	}
 
+static void SampleSurface(EVWORK_CAR* car, float& roughness, DWORD& waterFlag)
+{
+		// ---- Surface roughness from the game's own per-surface table ----
+		// sub_1149C0 is the exact LUT the game's Xbox vibration code shipped
+		// with: asphalt=0.0 (silent), sand=0.25, grass=0.70, rough=0.85-0.9,
+		// water 0.73-0.79 on lake stages (sets waterFlag). Max over 4 tires,
+		// same as the original code.
+		waterFlag = 0;
+		roughness = 0.0f;
+		for (int i = 0; i < 4; i++)
+		{
+			roughness = std::max(roughness, (float)sub_1149C0(
+				car->water_flag_24C[i], (int)car->OnRoadPlace_5C.loadColiType_0, &waterFlag));
+		}
+
+
+}
+
+#include "ffb_calculation.inl"
+
 	void Update(EVWORK_CAR* car)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return;
 		if (!car || panicStopped)
 			return;
 
@@ -820,458 +841,39 @@ namespace FFB
 			return;
 		}
 
-		// Warmup: ramp force scaling from 0 to 1 over first N frames.
-		// Prevents garbage telemetry on initial frames from causing force spikes.
-		// Using a ramp instead of a hard cutoff avoids the problem of game state
-		// flickering resetting a counter.
-		float warmupScale = 1.0f;
-		if (warmupFrames < WARMUP_THRESHOLD)
-		{
-			warmupFrames++;
-			warmupScale = static_cast<float>(warmupFrames) / static_cast<float>(WARMUP_THRESHOLD);
-		}
-
-		// The post-recreation ramp-in (fade back over ~250 ms instead of stepping
-		// to full torque after an effect had to be recreated) now happens inside
-		// the DLL, which is the only layer that knows a recreation occurred.
-		const float recreateScale = 1.0f;
-
-		// Update rates:
-		// - Constant force: every frame (60 Hz) for responsive steering feel.
-		// - Periodic effect envelopes: every 4th frame (~15 Hz) -- hardware
-		//   renders the waveform itself, the envelope only shapes it.
-		updateCounter++;
-		bool updateEnvelopes = (updateCounter % 4 == 0);
-
-		// Read telemetry from EVWORK_CAR
-		float speed = car->field_1C4;                      // Normalized speed (0.0 - ~1.0+)
-		float speedNorm = std::clamp(speed, 0.0f, 1.0f);
-		uint32_t stateFlags = car->field_8;                // State/collision bits
-		float lateralForce1 = car->field_264;              // Lateral slide component
-		float lateralForce2 = car->field_268;              // Lateral slide component (opposite sign convention)
-		uint32_t curGear = car->cur_gear_208;              // Current gear number
-		// UNCONFIRMED: 1D0 is read as steering position and 1D4 as its rate, but
-		// the drive log says |1D0| stays under 0.011 while 1D4 reaches 0.54. Both
-		// terms below are therefore suspect. Run one lap with FFBDiagnosticLog
-		// and read the FFB STEERSCAN line before tuning either.
-		float steer = car->field_1D0;                      // scale unverified
-		float steerRate = car->field_1D4;                  // scale unverified
-
-		// ---- Surface roughness from the game's own per-surface table ----
-		// sub_1149C0 is the exact LUT the game's Xbox vibration code shipped
-		// with: asphalt=0.0 (silent), sand=0.25, grass=0.70, rough=0.85-0.9,
-		// water 0.73-0.79 on lake stages (sets waterFlag). Max over 4 tires,
-		// same as the original code.
-		DWORD waterFlag = 0;
-		float roughness = 0.0f;
-		for (int i = 0; i < 4; i++)
-		{
-			roughness = std::max(roughness, (float)sub_1149C0(
-				car->water_flag_24C[i], (int)car->OnRoadPlace_5C.loadColiType_0, &waterFlag));
-		}
-
-		// ================================================================
-		// SIGNAL CONDITIONING -- lateral slide EMA, drift depth, histories
-		// ================================================================
-
-		{
-			float lateralCombined = (lateralForce1 + lateralForce2);
-
-			// Dual-rate EMA: fast attack (0.25) for responsive corner entry,
-			// faster decay (0.20) for snappy arcade feel when straightening.
-			float alpha = (std::abs(lateralCombined) > std::abs(smoothedLateral)) ? 0.25f : 0.20f;
-			smoothedLateral = alpha * lateralCombined + (1.0f - alpha) * smoothedLateral;
-		}
-
-		// Pre-crash lateral history: the collision response corrupts the lateral
-		// signal at impact time, so crash direction reads ~8 frames back
-		latHistory[latHistoryIdx % 16] = smoothedLateral;
-		latHistoryIdx++;
-
-		// Subtractive deadzone on the road-load term only (1.5, was a hard-zero
-		// at 5.0 -- ~21% of signal range -- which left the wheel limp through
-		// straights and gentle sweepers). The virtual spring now carries center
-		// feel, so this only clips the true noise floor.
-		float latDz = 0.0f;
-		{
-			float mag = std::abs(smoothedLateral) - Settings::FFBLateralDeadzone;
-			if (mag > 0.0f)
-				latDz = (smoothedLateral > 0.0f) ? mag : -mag;
-		}
-		float latNorm = std::clamp(latDz / 24.0f, -1.0f, 1.0f);
-
-		// Drift depth 0..1 -- the game's slide fields ARE its drift state
-		// (the Xbox vibration code uses them purely as slide detectors)
-		float driftAmt = std::clamp((std::abs(smoothedLateral) - 12.0f) / 12.0f, 0.0f, 1.0f);
-
-		// THE arcade-drift cue: the wheel LIGHTENS as grip is lost
-		// (front tires unloading), instead of getting heavier as before
-		float gripFactor = 1.0f - Settings::FFBGripLoss * driftAmt;
-
-		// Track speed history for crash detection + weight transfer (sliding window)
-		speedHistory[speedHistoryIdx % 8] = speed;
-		speedHistoryIdx++;
-
-		// Detect crash: compare current speed to speed 6 frames ago
-		// Wall deceleration is spread across many frames, so per-frame delta is tiny.
-		// A 6-frame window (~100ms) captures the full deceleration event.
-		// Observed wall hit deltas: ~0.04-0.06 over 6 frames.
-		if (crashImpulseTimer <= 0 && speedHistoryIdx > 6)
-		{
-			float oldSpeed = speedHistory[(speedHistoryIdx - 6) % 8];
-			float windowDelta = oldSpeed - speed;
-			if (windowDelta > 0.03f && speed > 0.1f) // 3% speed loss at speed = wall hit
-			{
-				// Direction from PRE-crash lateral history: the collision response
-				// corrupts the instantaneous lateral signal at impact (this is why
-				// steering angle was abandoned too). Push away from the wall side.
-				float latPre = (latHistoryIdx > 8) ? latHistory[(latHistoryIdx - 8) % 16] : smoothedLateral;
-				float impactDir = (latPre >= 0.0f) ? -1.0f : 1.0f;
-
-				// Strong jolt that cuts through steering weight (1.5 > max steering of 1.0)
-				crashImpulseForce = impactDir * 1.5f * Settings::FFBWallImpact;
-				crashImpulseTimer = 90; // 1.5 sec cooldown (force active first 10 frames, then lockout)
-				// Reset lateral EMA so the collision physics spike doesn't sustain
-				// a "pinned" steering weight force after the crash impulse ends.
-				smoothedLateral = 0.0f;
-				spdlog::info("FFB: CRASH impulse! windowDelta={:.3f} dir={:.0f} latPre={:.2f} force={:.2f}",
-					windowDelta, impactDir, latPre, crashImpulseForce);
-			}
-		}
-
-		// Also trigger on flags8 0x1000 edge (contact event)
-		{
-			bool collisionActive = (stateFlags & 0x1000) != 0;
-			bool wasColliding = (prevCollisionFlags & 0x1000) != 0;
-			if (collisionActive && !wasColliding && crashImpulseTimer <= 0)
-			{
-				// Same pre-crash direction logic as the speed-delta path
-				float latPre = (latHistoryIdx > 8) ? latHistory[(latHistoryIdx - 8) % 16] : smoothedLateral;
-				float flagDir = (latPre >= 0.0f) ? -1.0f : 1.0f;
-				crashImpulseForce = flagDir * 1.2f * Settings::FFBWallImpact;
-				crashImpulseTimer = 90;
-				smoothedLateral = 0.0f; // Reset EMA to prevent post-crash pinning
-				spdlog::info("FFB: CRASH impulse from flags8 0x1000! dir={:.0f} latPre={:.2f} force={:.2f}",
-					flagDir, latPre, crashImpulseForce);
-			}
-		}
-
-		// ================================================================
-		// VIBRATION ENVELOPES -- computed here, rendered either on hardware
-		// periodic effects (preferred) or via CF-fallback synthesis
-		// ================================================================
-
-		// Road texture: the game's own formula (roughness x speed). Asphalt has
-		// roughness 0.0 -> silent (correct: smooth tarmac has no 30 Hz buzz; the
-		// spring gradient carries "road connection").
-		float roadAmp = roughness * speedNorm * Settings::FFBRoadTexture;
-		float roadFreq = 25.0f + 12.0f * speedNorm;
-
-		// Water splash burst at high speed on water surfaces (game's own numbers)
-		if (waterFlag && roughness > 0.7f && speed > 0.95f && splashTimer <= 0)
-		{
-			splashAmp = (roughness - 0.7f) * speed * 0.75f;
-			splashTimer = 9; // ~150ms
-		}
-		if (splashTimer > 0)
-		{
-			roadAmp = std::max(roadAmp, splashAmp);
-			splashTimer--;
-		}
-
-		// Tire slip chatter: ramps in with drift depth, frequency dropping
-		// 40 -> 28 Hz as the slide deepens (stick-slip period grows).
-		// Shares its sine with engine idle -- the states are mutually exclusive.
-		float slipAmp = 0.0f;
-		float slipFreq = 40.0f;
-		if (driftAmt > 0.15f && speed > 0.1f)
-		{
-			slipAmp = driftAmt * Settings::FFBTireSlip;
-			slipFreq = 40.0f - 12.0f * driftAmt;
-		}
-		else if (speed < 0.05f && car->pedal_amount_34 > 0)
-		{
-			// Engine idle/launch rumble -- the only engine vibration kept.
-			// Continuous at-speed engine ripple is gone: real cabinets didn't
-			// render it through the steering motor, and at speed "aliveness"
-			// now comes from road texture (which actually renders).
-			float throttleNorm = std::clamp(static_cast<float>(car->pedal_amount_34) / 255.0f, 0.0f, 1.0f);
-			slipAmp = Settings::FFBEngineIdle * throttleNorm;
-			slipFreq = 15.0f + 7.0f * throttleNorm;
-		}
-
-		// ================================================================
-		// CONSTANT FORCE -- center-out model:
-		// backbone = virtual spring on steering position (what the arcade
-		// cabinet's mechanical centering did) damped by the game's steering
-		// derivative; lateral road load is a SECONDARY term that lightens as
-		// the slide deepens; weight transfer modulates; events pulse on top.
-		// ================================================================
-
-		if (ffbLoaded && useSharedModel)
-		{
-			// The game's signals, handed to the shared model. Everything here is
-			// already computed above by code that knows OutRun; none of it is
-			// tuning, and all the tuning lives in the profile.
-			dbce::force::Inputs in;
-			in.steer = steer;                       in.has_steer = true;
-			in.steer_rate = steerRate * 60.0f;      in.has_steer_rate = true;   // per frame -> per second
-			in.speed_mps = speed * Telemetry::MaxSpeedMps;
-			// latNorm is already -1..1; the profile's gReference is 1.0 so the
-			// model passes it through unchanged.
-			in.lateral_g = latNorm;                 in.has_lateral_g = true;
-			in.drift_amount = driftAmt;             in.has_drift = true;
-			if (speedHistoryIdx > 6)
-			{
-				in.longitudinal_g = (speed - speedHistory[(speedHistoryIdx - 6) % 8]) * 10.0f;
-				in.has_longitudinal_g = true;
-			}
-			// Texture rides the hardware periodics when the driver has them; the
-			// model's own texture term is the fallback.
-			if (!periodicsActive) in.texture = std::max(roadAmp, slipAmp);
-			if (crashImpulseTimer == 90)            // the tick the crash was detected
-			{
-				in.impact = std::min(1.0f, std::abs(crashImpulseForce));
-				in.impact_direction = crashImpulseForce >= 0.0f ? 1.0f : -1.0f;
-			}
-			in.gear_shift = (curGear != sharedPrevGear && sharedPrevGear != 0);
-			sharedPrevGear = curGear;
-
-			const float dt = 1.0f / 60.0f;
-			float shaped = sharedShaper->shape(sharedModel->compute(in, dt),
-				speed * Telemetry::MaxSpeedMps * 3.6f, dt, sharedModel->last_was_event);
-
-			// FFBGlobalStrength stays the user's master dial on top of the
-			// profile's own shaper.strength, and is applied inside SetConstantForce.
-			LONG diMagnitude = std::clamp((LONG)(shaped * 10000.0f), (LONG)-10000, (LONG)10000);
-			if (std::abs(diMagnitude - prevConstantLevel) > 15 || sharedModel->last_was_event)
-				SetConstantForce(diMagnitude);
-		}
-		else if (ffbLoaded)
-		{
-			// --- Backbone: virtual spring ---
-			// speedCurve rises fast (full effect by 25% speed) then keeps growing
-			// linearly -- parked wheel stays light for menus and the start line,
-			// force arrives with the launch. Near-linear speed scaling matches the
-			// arcade cab (speed-squared curves read as sim-like).
-			float speedCurve = std::clamp(speed / 0.25f, 0.0f, 1.0f) * (0.35f + 0.65f * speedNorm);
-			float F_spring = -steer * Settings::FFBSpringStrength * speedCurve;
-
-			// --- Backbone: virtual damper on the game's own steering derivative ---
-			// field_1D4 is a per-frame steering delta (small values); the scale
-			// factor normalizes it into the same range as the spring term.
-			// Verify observed range via FFBDiagnosticLog before fine-tuning.
-			// Damper floor of 0.4 keeps a DD wheel from oscillating at low speed
-			// where the spring is weak.
-			constexpr float STEER_RATE_SCALE = 20.0f;
-			float F_damper = -steerRate * STEER_RATE_SCALE * Settings::FFBDamperStrength * (0.4f + 0.6f * speedNorm);
-
-			// --- Secondary: lateral road load, lightened by grip loss ---
-			// In grip the wheel loads up; in a drift it goes light (gripFactor).
-			// This replaces lateral-slide-as-the-whole-force, which inverted the
-			// real relationship (max heaviness exactly when grip was LOST).
-			float F_lat = latNorm * speedNorm * Settings::FFBSteeringWeight * gripFactor;
-
-			// --- Weight transfer: modulates, doesn't add ---
-			// Hard braking adds up to +30% weight, full throttle sheds up to 20%.
-			// A multiplier cannot pull the wheel on a straight.
-			float loadMod = 1.0f;
-			if (speedHistoryIdx > 6)
-			{
-				float longAccel = (speed - speedHistory[(speedHistoryIdx - 6) % 8]) * 10.0f;
-				loadMod = 1.0f + std::clamp(-longAccel * Settings::FFBWeightTransfer, -0.20f, 0.30f);
-			}
-
-			// Structural force (suppressed during the active crash jolt to
-			// prevent force stacking)
-			float F_struct = 0.0f;
-			if (crashImpulseTimer <= 80)
-				F_struct = (F_spring + F_lat) * loadMod + F_damper;
-
-			// --- Events ---
-			float F_events = 0.0f;
-
-			// Crash impulse (time-limited jolt with long cooldown)
-			// Timer starts at 90: frames 90-81 = active jolt, 80-1 = cooldown (no force, no re-trigger)
-			if (crashImpulseTimer > 0)
-			{
-				if (crashImpulseTimer > 80) // Active jolt phase (first 10 frames = ~167ms)
-				{
-					float envelope;
-					if (crashImpulseTimer > 85)
-						envelope = 1.0f; // Full force for first ~83ms
-					else
-						envelope = float(crashImpulseTimer - 80) / 5.0f; // Decay over ~83ms
-
-					F_events += crashImpulseForce * envelope;
-				}
-				// Frames 80-1: cooldown only, no force applied, prevents re-trigger
-				crashImpulseTimer--;
-			}
-
-			// Gear shift: symmetric double pulse (+K then -K -- a "thunk").
-			// A directional kick reads as "the game yanked the wheel sideways";
-			// a real shift jolt is longitudinal, so the lateral pulse must net to zero.
-			if (curGear != prevGear && prevGear != 0 && gearShiftTimer <= 0)
-				gearShiftTimer = 6; // ~100ms at 60fps
-
-			if (gearShiftTimer > 0)
-			{
-				float thunk = 0.2f * Settings::FFBGearShift * ((gearShiftTimer > 3) ? 1.0f : -1.0f);
-				F_events += thunk;
-				gearShiftTimer--;
-			}
-
-			float totalForce = F_struct + F_events;
-
-			// Apply inversion if configured
-			if (Settings::FFBInvertForce)
-				totalForce = -totalForce;
-
-			// Warmup ramp (garbage first frames) and post-recreation ramp-in (anti-jerk)
-			totalForce *= warmupScale * recreateScale;
-
-			// Soft saturation via tanh: preserves relative force differences
-			// near the limit instead of hard-clipping to +/-1.0.
-			float compressed = std::tanh(totalForce);
-
-			// Slew-rate limiter on the STRUCTURAL force only: prevent
-			// micro-oscillations on DD wheels by capping change per frame.
-			// Crash impulses and gear shift pulses bypass the limiter.
-			LONG structMag = (LONG)(compressed * 10000.0f);
-			LONG slewDelta = structMag - prevStructLevel;
-			constexpr LONG maxSlew = 600; // ~6% of 10000
-			bool bypassSlew = (crashImpulseTimer > 80) || (gearShiftTimer > 0);
-			if (std::abs(slewDelta) > maxSlew && !bypassSlew)
-				structMag = prevStructLevel + ((slewDelta > 0) ? maxSlew : -maxSlew);
-			prevStructLevel = structMag;
-
-			// --- CF-fallback vibration (only when hardware periodics are absent) ---
-			// Injected AFTER the tanh compressor so cornering load can't eat the
-			// ripple (at a load of 0.6 the local tanh slope is ~0.71, at 1.0 it's
-			// ~0.42 -- pre-compressor vibration lost 30-60% exactly when it
-			// mattered). Synth frequencies capped at 15 Hz: zero-order-hold loss
-			// at 15/60 is only ~11%, vs ~26% at 25 Hz.
-			float vib = 0.0f;
-			if (!periodicsActive)
-			{
-				if (roadAmp > 0.005f)
-				{
-					float f = std::min(roadFreq, 15.0f);
-					roadPhase = std::fmod(roadPhase + f / 60.0f * 6.2832f, 6.2832f);
-					vib += std::sin(roadPhase) * roadAmp;
-				}
-				else
-					roadPhase = 0.0f;
-
-				if (slipAmp > 0.005f)
-				{
-					float f = std::min(slipFreq, 15.0f);
-					slipPhase = std::fmod(slipPhase + f / 60.0f * 6.2832f, 6.2832f);
-					vib += std::sin(slipPhase) * slipAmp;
-				}
-				else
-					slipPhase = 0.0f;
-			}
-
-			// Convert to DirectInput range: ±10000 (matching test bench)
-			LONG diMagnitude = std::clamp(structMag + (LONG)(vib * 10000.0f), (LONG)-10000, (LONG)10000);
-
-			// Deadband: skip updating if the level barely changed.
-			LONG delta = std::abs(diMagnitude - prevConstantLevel);
-			if (delta > 15 || crashImpulseTimer > 80)
-			{
-				SetConstantForce(diMagnitude);
-			}
-		}
-
-		// ================================================================
-		// PERIODIC CHANNEL -- hardware-rendered vibration envelopes (~15 Hz)
-		// ================================================================
-
-		if (periodicsActive && updateEnvelopes)
-		{
-			UpdatePeriodic(slotRoadTexture, roadAmp, roadFreq);
-			UpdatePeriodic(slotTireSlip, slipAmp, slipFreq);
-		}
-		// A slot whose handle dies is recreated inside the DLL, behind its own
-		// 500 ms hold-off, so there is nothing to retry from here.
-
-		// Diagnostic logging: every 2 seconds (gated behind FFBDiagnosticLog)
-		if (Settings::FFBDiagnosticLog)
-		{
-			diagSteerRateMin = std::min(diagSteerRateMin, steerRate);
-			diagSteerRateMax = std::max(diagSteerRateMax, steerRate);
-
-			// Min/max, not an instantaneous sample: the old line sampled steer
-			// once every two seconds, which is what made a signal 100x too small
-			// look merely quiet.
-			const float probed[] = { car->field_1C8, car->field_1CC, car->field_1D0,
-			                         car->field_1D4, car->field_1DC, car->field_1E0 };
-			static_assert(sizeof(probed) / sizeof(probed[0]) == sizeof(steerProbe) / sizeof(steerProbe[0]),
-				"steerProbe names and probed values must line up");
-			for (size_t pi = 0; pi < sizeof(probed) / sizeof(probed[0]); pi++)
-			{
-				steerProbe[pi].lo = std::min(steerProbe[pi].lo, probed[pi]);
-				steerProbe[pi].hi = std::max(steerProbe[pi].hi, probed[pi]);
-			}
-
-			static DWORD lastDiagTime = 0;
-			DWORD now = GetTickCount();
-			if (now - lastDiagTime >= 2000)
-			{
-				lastDiagTime = now;
-				spdlog::info("FFB DIAG: spd={:.3f} steer={:.3f} rate=[{:.5f}..{:.5f}] lat={:.2f} drift={:.2f} rough={:.2f} constLvl={} periodics={} warmup={}/{}",
-					speed, steer, diagSteerRateMin, diagSteerRateMax, smoothedLateral, driftAmt, roughness,
-					(int)prevConstantLevel, periodicsActive, warmupFrames, WARMUP_THRESHOLD);
-
-				char scan[256];
-				int at = 0;
-				for (size_t pi = 0; pi < sizeof(probed) / sizeof(probed[0]) && at >= 0 && at < (int)sizeof(scan); pi++)
-				{
-					int wrote = snprintf(scan + at, sizeof(scan) - at, "%s[%.4f..%.4f] ",
-						steerProbe[pi].name, steerProbe[pi].lo, steerProbe[pi].hi);
-					if (wrote < 0) break;
-					at += wrote;
-					steerProbe[pi].lo = 0.0f;
-					steerProbe[pi].hi = 0.0f;
-				}
-				spdlog::info("FFB STEERSCAN: {}", scan);
-
-				diagSteerRateMin = 0.0f;
-				diagSteerRateMax = 0.0f;
-			}
-		}
-
-		// Store previous frame state for next-frame edge detection
-		prevGear = curGear;
-		prevCollisionFlags = stateFlags;
-		prevSpeed = speed;
+		CalculateSignals(car, 0.0f, 0, {SetConstantForce, UpdatePeriodic}, GetTickCount, SampleSurface);
 	}
 
-	void Shutdown()
-	{
-		Telemetry::Shutdown();
+    // Only the committed outer-loop boundary may call this after leases drain.
+    // Native worker completion remains a matched-toolkit release gate.
+    void FinalizeForExit()
+    {
+        panicStopped = true;
+        if (ffbLoaded) { ffb.PanicStop(); ffb.FreeDirectInput(); }
+        initialized = false;
+        periodicsActive = false;
+        slotRoadTexture = slotTireSlip = -1;
+        prevConstantLevel = prevStructLevel = 0;
+        delete sharedModel; sharedModel = nullptr;
+        delete sharedShaper; sharedShaper = nullptr;
+        useSharedModel = false;
+        Telemetry::Shutdown();
+        // Successful native module stays pinned; never hot-unload it.
+    }
 
-		if (!initialized)
-			return;
-
-		spdlog::info("FFB: Shutting down...");
-
-		// This runs from DLL_PROCESS_DETACH, under the loader lock. PanicStop is
-		// the part that must happen and is a no-op if an exit guard already ran.
-		// Nothing else is torn down deliberately: FreeLibrary from DllMain is
-		// forbidden, and releasing COM objects here is what used to fault
-		// (0xC0000005 on all three effects) and silently skip the autocentre
-		// restore. The process is exiting; the OS reclaims the rest.
-		PanicStop();
-
-		initialized = false;
-		spdlog::info("FFB: Shutdown complete");
-	}
+    void SilenceForLifecycle()
+    {
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime(), true);
+        if (!lease || !initialized || !ffbLoaded || panicStopped) return;
+        ffb.ZeroForces();
+        prevConstantLevel = prevStructLevel = 0;
+        warmupFrames = 0;
+    }
 
 	const char* UiStatus()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return "Stopped for game exit";
 		if (!Settings::DirectInputFFB) return "Off - choose On to resume";
 		if (panicStopped) return "Stopped for game exit";
 		if (!deviceError.empty()) return deviceError.c_str();

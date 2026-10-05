@@ -19,6 +19,8 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 #include "wheel_ui_snapshot.hpp"
+#include "consumer_lifecycle.hpp"
+#include <unordered_set>
 
 // Defined in Proxy.cpp — the real IDirectInput8A before our filtering wrapper
 extern IDirectInput8A* g_RealDirectInput8;
@@ -414,6 +416,8 @@ namespace DInputRemap
 
 	static bool DeferredInit()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return false;
 		if (initAttempted)
 			return initialized;
 		initAttempted = true;
@@ -461,6 +465,8 @@ namespace DInputRemap
 
 	static void PollSlot(DeviceSlot& slot)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return ;
 		if (!slot.device) return;
 		slot.previousState = slot.currentState;
 
@@ -510,6 +516,8 @@ namespace DInputRemap
 
 	static void Poll()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return ;
 		// Guard: only poll once per frame (GetVolume called 3+ times per frame)
 		DWORD tick = GetTickCount();
 		if (tick == lastPollFrame)
@@ -889,14 +897,18 @@ namespace DInputRemap
 	}
 	void RefreshUiInputDevices()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return ;
 		uiInputDevices.clear();
 		auto* di = g_RealDirectInput8 ? g_RealDirectInput8 : (Game::DirectInput8_ptr ? Game::DirectInput8() : nullptr);
 		if (di) di->EnumDevices(DI8DEVCLASS_GAMECTRL, UiEnumCallback, nullptr, DIEDFL_ATTACHEDONLY);
 	}
 	const std::vector<InputDeviceChoice>& UiInputDevices() { return uiInputDevices; }
-	std::string PrimaryInputGuid() { return primaryGuidValid ? GuidText(primaryGuid) : ""; }
+	std::string PrimaryInputGuid() { ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime()); if (!lease) return {}; return primaryGuidValid ? GuidText(primaryGuid) : ""; }
 	bool CanAdoptPrimaryInput(const std::string& text)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return false;
 		if (IsPrimaryGuid(text)) return primary.initialized && primary.connected;
 		GUID guid{};
 		if (!ParseGuid(text, guid)) return false;
@@ -907,6 +919,8 @@ namespace DInputRemap
 	}
 	void AdoptPrimaryInput(const std::string& text)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return ;
 		if (IsPrimaryGuid(text) || !CanAdoptPrimaryInput(text)) return;
 		GUID guid{}; ParseGuid(text, guid);
 		const auto key = GuidText(guid);
@@ -942,6 +956,8 @@ namespace DInputRemap
 	}
 	void ReleaseUnusedUiDevices()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return ;
 		for (auto it = extraInputs.begin(); it != extraInputs.end();)
 		{
 			bool used = false;
@@ -980,6 +996,8 @@ namespace DInputRemap
 	}
 	UiSnapshot ReadDeviceUiSnapshot(const std::string& guid)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return {};
 		auto snapshot = ReadSlotUiSnapshot(EnsureExtraInput(guid));
 		GUID parsed{};
 		if (ParseGuid(guid, parsed)) snapshot.guid = GuidText(parsed); // Keep a missing saved identity.
@@ -987,6 +1005,8 @@ namespace DInputRemap
 	}
 	UiSnapshot ReadUiSnapshot()
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return {};
 		auto snapshot = ReadSlotUiSnapshot(&primary);
 		for (int role = 1; role <= 2; ++role)
 		{
@@ -1000,11 +1020,13 @@ namespace DInputRemap
 	}
 	UiSnapshot ReadAxisUiSnapshot(int role)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return {};
 		return role == 0 ? ReadSlotUiSnapshot(&primary) : ReadDeviceUiSnapshot(PedalGuid(role));
 	}
 
-	IDirectInputDevice8A* GetPrimaryDevice() { return primary.device; }
-	bool IsPrimaryInitialized() { return primary.initialized; }
+	IDirectInputDevice8A* GetPrimaryDevice() { ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime()); if (!lease) return nullptr; return primary.device; }
+	bool IsPrimaryInitialized() { ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime()); if (!lease) return false; return primary.initialized; }
 
 	// Live pedal positions, 0-255, for the telemetry packet.
 	//
@@ -1018,15 +1040,36 @@ namespace DInputRemap
 	// Returns -1 when there is no primary device, so the caller can leave the
 	// packet field alone rather than transmitting a confident zero (which a
 	// brake light would read as "pedal released" rather than "no data").
-	int GetTelemetryAccel() { const auto* slot = PedalSlot(1); return slot && slot->initialized && PedalAvailable(slot, 1) ? GetAcceleration() : -1; }
-	int GetTelemetryBrake() { const auto* slot = PedalSlot(2); return slot && slot->initialized && PedalAvailable(slot, 2) ? GetBrake() : -1; }
+	int GetTelemetryAccel() { ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime()); if (!lease) return -1; const auto* slot = PedalSlot(1); return slot && slot->initialized && PedalAvailable(slot, 1) ? GetAcceleration() : -1; }
+	int GetTelemetryBrake() { ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime()); if (!lease) return -1; const auto* slot = PedalSlot(2); return slot && slot->initialized && PedalAvailable(slot, 2) ? GetBrake() : -1; }
 	bool GetPrimaryDeviceGuid(GUID* out)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return false;
 		if (!primaryGuidValid || !out)
 			return false;
 		*out = primaryGuid;
 		return true;
 	}
+    // Called only after the shared consumer gate drains. These are our own
+    // CreateDevice handles; the game's/Proxy's DirectInput instance is borrowed.
+    void FinalizeForExit()
+    {
+        std::unordered_set<IDirectInputDevice8A*> released;
+        const auto release = [&](DeviceSlot& slot) {
+            if (slot.device && released.insert(slot.device).second) {
+                slot.device->Unacquire();
+                slot.device->Release();
+            }
+            slot.device = nullptr;
+            slot.initialized = slot.connected = false;
+        };
+        release(primary); release(shifter); release(aux);
+        for (auto& [identity, slot] : extraInputs) release(*slot);
+        extraInputs.clear(); openedGuids.clear();
+        initialized = primaryGuidValid = false;
+        // Never Release g_RealDirectInput8 or Game::DirectInput8().
+    }
 }
 
 class DirectInputRemapHook : public Hook
@@ -1035,6 +1078,8 @@ class DirectInputRemapHook : public Hook
 	inline static SafetyHookInline GetVolume_hook = {};
 	static int __cdecl GetVolume_dest(ADChannel volumeId)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return 0;
 		if (!DInputRemap::initialized)
 		{
 			if (!DInputRemap::DeferredInit())
@@ -1055,6 +1100,8 @@ class DirectInputRemapHook : public Hook
 	inline static SafetyHookInline GetVolumeOld_hook = {};
 	static int __cdecl GetVolumeOld_dest(ADChannel volumeId)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return 0;
 		if (!DInputRemap::initialized)
 			return GetVolumeOld_hook.ccall<int>(volumeId);
 
@@ -1091,6 +1138,8 @@ class DirectInputRemapHook : public Hook
 	inline static SafetyHookInline VolumeSwitch_hook = {};
 	static int __cdecl VolumeSwitch_dest(ADChannel volumeId)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return 0;
 		if (DInputRemap::initialized)
 		{
 			static bool logged = false;
@@ -1111,6 +1160,8 @@ class DirectInputRemapHook : public Hook
 	inline static SafetyHookInline SwitchOn_hook = {};
 	static int __cdecl SwitchOn_dest(uint32_t switches)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return 0;
 		if (!DInputRemap::initialized)
 		{
 			if (!DInputRemap::DeferredInit())
@@ -1136,6 +1187,8 @@ class DirectInputRemapHook : public Hook
 	inline static SafetyHookInline SwitchNow_hook = {};
 	static int __cdecl SwitchNow_dest(uint32_t switches)
 	{
+        ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+        if (!lease) return 0;
 		if (!DInputRemap::initialized)
 		{
 			if (!DInputRemap::DeferredInit())

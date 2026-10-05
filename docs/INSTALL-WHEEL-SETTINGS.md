@@ -1,4 +1,9 @@
-# Install OutRun wheel settings
+# Install DBCE Mods: OutRun 2006
+
+Canonical source URL: [dbce-mods-outrun-2006](https://github.com/d-b-c-e/dbce-mods-outrun-2006)
+The in-place rename completed on 2026-10-01. The legacy
+[OutRun2006Tweaks-FFB source URL](https://github.com/d-b-c-e/OutRun2006Tweaks-FFB) redirects here.
+Repository identity remains `1163595970`; historical packages retain their names.
 
 This is an x86 development candidate for the Windows PC version of OutRun 2006
 Coast 2 Coast. No game files are included. Physical wheel acceptance remains

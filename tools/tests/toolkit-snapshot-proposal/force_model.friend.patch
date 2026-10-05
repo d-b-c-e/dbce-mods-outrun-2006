@@ -1,0 +1,18 @@
+--- a/native/forcemodel/force_model.h
++++ b/native/forcemodel/force_model.h
+@@ -237,4 +237,7 @@ public:
+ private:
++#ifdef DBCE_FORCE_OFFLINE_SNAPSHOT_V1
++    friend struct OfflineSnapshotAccess;
++#endif
+     float shift_t_, shift_emitted_;
+     float impact_t_, impact_sign_, impact_mag_;
+     float texture_phase_;
+@@ -331,4 +334,7 @@ public:
+ private:
++#ifdef DBCE_FORCE_OFFLINE_SNAPSHOT_V1
++    friend struct OfflineSnapshotAccess;
++#endif
+     float smoothed_, last_, ramp_t_;
+     bool  started_;
+ };

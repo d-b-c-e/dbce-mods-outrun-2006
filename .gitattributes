@@ -1,0 +1,4 @@
+# Verbatim notice bytes and their index hashes must survive any checkout platform.
+third-party/notices/*.txt -text -whitespace
+# Exact offline observation comparison must retain invariant LF bytes.
+tools/tests/data/*.expected text eol=lf

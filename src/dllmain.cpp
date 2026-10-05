@@ -11,10 +11,6 @@
 
 void InitExceptionHandler(); // hooks_exceptions.cpp
 
-// FFB cleanup -- must be called on DLL unload to stop haptic effects
-// (otherwise the constant force stays active and the wheel is stuck)
-namespace FFB { void Shutdown(); }
-
 namespace Module
 {
 	constexpr std::string_view TargetFilename = "OR2006C2C.exe";
@@ -501,23 +497,19 @@ void Plugin_Init()
 
 BOOL APIENTRY DllMain(HMODULE hModule, int ul_reason_for_call, LPVOID lpReserved)
 {
-	DisableThreadLibraryCalls(hModule);
 
 	if (ul_reason_for_call == DLL_PROCESS_ATTACH)
 	{
+		DisableThreadLibraryCalls(hModule);
 		Module::DllHandle = hModule;
 		proxy::on_attach(Module::DllHandle);
 
 		static std::once_flag flag;
 		std::call_once(flag, Plugin_Init);
 	}
-	else if (ul_reason_for_call == DLL_PROCESS_DETACH)
-	{
-		// Stop all haptic effects before unloading -- prevents the wheel
-		// from staying stuck at the last force level after game exit.
-		FFB::Shutdown();
-		proxy::on_detach();
-	}
+	// Detach stays quiet: no waits, logging, foreign ABI, or FreeLibrary.
+	// Cleanup runs before game cleanup outside loader lock. Modules are pinned;
+	// explicit hot-unload is unsupported.
 
 	return TRUE;
 }

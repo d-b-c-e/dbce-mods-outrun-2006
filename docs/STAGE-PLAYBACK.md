@@ -7,6 +7,12 @@ setting or native hook changed during this intake. DRIVE's completed diagnostic
 allowed this follow-up to begin; its Unity adapter cannot qualify these native
 x86 hooks.
 
+**Later startup recovery:** Claude's installed-copy test crashed with missing
+script data. The 110 absent script/BK assets are restored and hash-verified;
+native hooks, settings and saves remain unchanged. Run `tools/Test-GameData.ps1`
+before a new launch, then verify startup. See
+[the repair evidence](STARTUP-ASSETS-2026-10-05.md).
+
 ## What exists and was checked
 
 Source `cfc6a6b` includes a production-linked numeric calculation seam:

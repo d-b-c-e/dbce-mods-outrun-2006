@@ -19,4 +19,4 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-009 | Dashboard telemetry matches the HUD | unchecked |  |
 | STD-010 | Install the latest build for testing | unchecked |  |
 | STD-011 | Work lands on main | adopted | This scoped playback intake was merged/pushed to master; accepted runtime remains independently identified. |
-| STD-012 | Reproduce the route and preserve original signals | pending | Native hook/output/startup boundaries inspected; existing 128-frame force-calculation recorder passes offline tests but lacks external runtime capture and gameplay replay. See docs/STAGE-PLAYBACK.md. |
+| STD-012 | Reproduce the route and preserve original signals | pending | Native hook/output/startup boundaries inspected; existing 128-frame force-calculation recorder passes offline tests but lacks external runtime capture and gameplay replay. Added read-only base-game asset preflight after 110 absent files caused a startup blocker; restoration verified, live retest pending. See docs/STAGE-PLAYBACK.md. |

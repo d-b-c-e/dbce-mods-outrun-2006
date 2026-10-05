@@ -9,7 +9,7 @@ Claude's 14:06 and 14:33 tests crashed at EXE RVA `0xF121A`, both at 7680 and
 return address `0x4EF303`. Exact EXE disassembly traces that call through the
 OutrunMiles script-table lookup (`PRICES`/`SETUP`); the referenced
 `Scripts/bin/OutrunMiles.bin` was absent. This is strong evidence for the
-missing-data diagnosis, but a post-restoration runtime test is still required.
+missing-data diagnosis. The post-restoration startup passed as recorded below.
 Do not patch out the null read or blame the lifecycle hook from the stack alone.
 
 On October 5 at 20:00:33 UTC, only the 110 absent assets were restored from the
@@ -27,6 +27,21 @@ Original crash evidence:
 The game target remains
 `E:/Source/_archive/2026-10-04/outrun2006/outrun2006-redux/game`.
 No game bytes were added to source control.
+
+## Post-repair startup passed
+
+Claude's coordinated 15:38:32–15:40:05 CT test reached the title at 7680x1440
+under Surround and exited normally. The title/attract content remained centred
+at 4:3; this does not establish race wide rendering or true triples. Coordinator
+evidence is dbce-project-mgmt commit a318c81. Native title confirmation and the
+offline route to driving remain unqualified.
+
+Readback afterward verified all 110 repaired asset hashes and all 30 original
+non-log root/save hashes. The remaining original root file is the runtime log,
+which correctly changed during the new run. Its exact new bytes are retained at
+the private receipt above under retest-20261005-1540; log SHA-256:
+DF093C783F16EC7172C2332C7339B4663001CC6644EF4F420049A1604DA2CA59.
+This resolves the observed startup crash; it is not a recording/playback test.
 
 Run this read-only check before another unattended launch:
 

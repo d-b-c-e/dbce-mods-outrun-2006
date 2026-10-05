@@ -2,7 +2,9 @@
 
 **October 5 startup recovery:** the Stream Deck copy lacked 110 script/BK game
 assets. Restored only missing files from two agreeing local installs; all hashes
-and 31 protected root/save files verified. Startup still needs a post-repair test.
+and 31 protected root/save files verified. Claude's 15:38 CT post-repair test
+reached the title at 7680x1440 and exited normally. Post-run check retained all
+30 non-log root/save hashes and all 110 repaired asset hashes; the new log is saved.
 Run `tools/Test-GameData.ps1` before another launch. See
 `docs/STARTUP-ASSETS-2026-10-05.md`; do not blame hooks or resolution without evidence.
 

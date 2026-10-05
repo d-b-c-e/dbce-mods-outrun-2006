@@ -10,7 +10,8 @@ x86 hooks.
 **Later startup recovery:** Claude's installed-copy test crashed with missing
 script data. The 110 absent script/BK assets are restored and hash-verified;
 native hooks, settings and saves remain unchanged. Run `tools/Test-GameData.ps1`
-before a new launch, then verify startup. See
+before a new launch. Claude's 15:38 CT test reached title and exited normally;
+native title confirmation and an offline driving route still need qualification. See
 [the repair evidence](STARTUP-ASSETS-2026-10-05.md).
 
 ## What exists and was checked

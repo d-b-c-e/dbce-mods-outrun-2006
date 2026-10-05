@@ -135,9 +135,10 @@ The next useful test keeps the backend and display fixed, confirms the actual
 foreground HWND and neutral release, then tries Start and A separately through
 the already-connected pad. Capture native requested masks, raw positive results
 and suspension reasons if it fails. Do not repeat an A-only loop, switch input
-backends at runtime, or remove focus isolation to force a pass. If mixed-mask
-suppression is observed, fix it with source-linked remapper tests while preserving
-pedal-navigation suppression and the original query semantics.
+backends at runtime, move focus with agent tooling, or remove focus isolation to
+force a pass. A naturally unfocused run is evidence of that gate, not permission
+to bypass it. The mixed-mask source defect is now fixed offline as described below;
+whether the title requests such masks still needs observation.
 
 Codex supplied these findings to Claude for reciprocal review through
 `dbce-project-mgmt/inbox/from-astra.md`; no new game run, installed payload,
@@ -146,3 +147,42 @@ gameplay capture/replay remain unimplemented/unqualified.
 
 Private exact log copies and hashes:
 `%LOCALAPPDATA%/Dbce/StagePlayback/SessionEvidence/outrun-input-review-ba2e2750dc7d411db68a5d7408a0320f/receipt.json`.
+
+### Mixed native/remapped switch fix — October 5, after the 16:22 report
+
+The production edge and held hooks now share `DInputRemap::MergeSwitchQuery`.
+It excludes only the four native direction bits from the original query, merges
+the original return with remapped any-bit input, and skips an empty native query.
+Previously, any direction bit caused the entire original query to be skipped.
+For example, native A held during an `A | SelectionUp` query returned zero.
+Filtering only directions preserves pedal-navigation suppression, native
+A/Start/camera input, and the original raw-bit or Boolean return convention.
+The SDL backend and outer focus/UI/release gates are unchanged.
+
+The regression first ran against the old policy extracted without a behavior
+change into that shared production function. It failed the mixed-A case:
+`result=0 expected=4; native reads=0 expected=1; native mask=0 expected=4`.
+After the fix, all **34 remapper cases** passed with raw-bit and Boolean native
+returns. The existing actual-source suite also passed its 144 legacy axis cases,
+calibration/device identity/finalization checks, FFB output gates, actual ImGui
+settings transactions and x86 dispatch/held-release/WM_CHAR/focus isolation.
+These tests use memory-only devices and local trampolines, not game or OS input.
+
+Reproduce with `./tools/tests/Test-WheelSettings.ps1`. Local evidence is
+`build/mixed-switch-before.log` (expected failure), `build/mixed-switch-after.log`
+and `build/wheel-settings-fixture/run-4cd1d7a268cd40e2a3da0384dfe7eb9d`.
+This establishes a source defect and its correction, **not** the cause of the
+failed title confirmation: neither query masks nor foreground state were captured
+at the failed presses. No game launch, deployment, display change or force test
+was performed for this fix. The accepted installed runtime remains `86599699`.
+
+The complete Win32 Release target also built successfully in the separate
+`build/mixed-switch-candidate` directory using the existing dependency sources.
+The moved legacy `build/CMakeCache.txt` still names `E:/Source/OutRun2006Tweaks-FFB`
+and cannot regenerate; it and its historical artifacts were retained. Fresh
+configuration and build output: `build/mixed-switch-configure.log` and
+`build/mixed-switch-release-fresh.log`. This local pre-commit diagnostic DLL has
+SHA256 `1E61F51AB877AD317EDB4B9C7AC61DCECA5DD52B5BD4D6A083B70C8F01CD8276`;
+it is not a release package or a deployed candidate. Read-only verification still
+finds installed DINPUT8.dll SHA256
+`1F534047BF52E19062B30E194FC56148AD3A8F38EA53BF249485121F441FBBA6`.

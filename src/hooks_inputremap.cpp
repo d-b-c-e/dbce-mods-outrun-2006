@@ -795,6 +795,22 @@ namespace DInputRemap
 
 	// ---------- Switch mask builders ----------
 
+	// Shared by edge and held queries. The native backend uses any-bit queries.
+	template <typename NativeQuery>
+	static int MergeSwitchQuery(uint32_t switches, uint32_t ourMask, NativeQuery originalQuery)
+	{
+		static constexpr uint32_t navBits =
+			(1u << static_cast<int>(SwitchId::SelectionUp)) |
+			(1u << static_cast<int>(SwitchId::SelectionDown)) |
+			(1u << static_cast<int>(SwitchId::SelectionLeft)) |
+			(1u << static_cast<int>(SwitchId::SelectionRight));
+		// Filter only native directions, not the entire query. Mixed queries must
+		// still see native A/Start/etc. without parked pedals producing navigation.
+		const uint32_t nativeMask = switches & ~navBits;
+		const int original = nativeMask ? originalQuery(nativeMask) : 0;
+		return ((ourMask & switches) ? 1 : 0) | original;
+	}
+
 	static uint32_t BuildSwitchMask()
 	{
 		uint32_t mask = 0;
@@ -1171,17 +1187,8 @@ class DirectInputRemapHook : public Hook
 		DInputRemap::Poll();
 		uint32_t ourMask = DInputRemap::BuildSwitchOnMask();
 
-		// Hybrid: suppress original for nav directions (prevents pedal axis-as-menu scrolling),
-		// merge with original for everything else
-		static const uint32_t navBits =
-			(1 << static_cast<int>(SwitchId::SelectionUp)) |
-			(1 << static_cast<int>(SwitchId::SelectionDown)) |
-			(1 << static_cast<int>(SwitchId::SelectionLeft)) |
-			(1 << static_cast<int>(SwitchId::SelectionRight));
-		if (switches & navBits)
-			return (ourMask & switches) ? 1 : 0;
-		int original = SwitchOn_hook.ccall<int>(switches);
-		return ((ourMask & switches) ? 1 : 0) | original;
+		return DInputRemap::MergeSwitchQuery(switches, ourMask,
+			[](uint32_t nativeMask) { return SwitchOn_hook.ccall<int>(nativeMask); });
 	}
 
 	inline static SafetyHookInline SwitchNow_hook = {};
@@ -1198,16 +1205,8 @@ class DirectInputRemapHook : public Hook
 		DInputRemap::Poll();
 		uint32_t ourMask = DInputRemap::BuildSwitchMask();
 
-		// Hybrid: suppress original for nav directions only
-		static const uint32_t navBits =
-			(1 << static_cast<int>(SwitchId::SelectionUp)) |
-			(1 << static_cast<int>(SwitchId::SelectionDown)) |
-			(1 << static_cast<int>(SwitchId::SelectionLeft)) |
-			(1 << static_cast<int>(SwitchId::SelectionRight));
-		if (switches & navBits)
-			return (ourMask & switches) ? 1 : 0;
-		int original = SwitchNow_hook.ccall<int>(switches);
-		return ((ourMask & switches) ? 1 : 0) | original;
+		return DInputRemap::MergeSwitchQuery(switches, ourMask,
+			[](uint32_t nativeMask) { return SwitchNow_hook.ccall<int>(nativeMask); });
 	}
 
 public:

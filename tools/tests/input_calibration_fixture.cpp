@@ -1,7 +1,8 @@
-// Executes the production primary-axis readers against memory-only DI states.
+// Executes production switch merging and axis readers against memory-only states.
 // Never enumerates, acquires a device, installs hooks or starts the game.
 #include "../../src/hooks_inputremap.cpp"
 #include <cassert>
+#include <cstdlib>
 #include <iostream>
 #include <limits>
 
@@ -12,8 +13,66 @@ static ULONG __stdcall FakeRelease(void*) { ++consumerReleases; return 0; }
 static HRESULT __stdcall FakeUnacquire(void*) { ++consumerUnacquires; return S_OK; }
 static ULONG __stdcall BorrowedRelease(void*) { ++borrowedCalls; return 0; }
 
+static void TestSwitchQueries()
+{
+    constexpr uint32_t a = 1u << static_cast<int>(SwitchId::A);
+    constexpr uint32_t start = 1u << static_cast<int>(SwitchId::Start);
+    constexpr uint32_t camera = 1u << static_cast<int>(SwitchId::ChangeView);
+    constexpr uint32_t up = 1u << static_cast<int>(SwitchId::SelectionUp);
+    constexpr uint32_t down = 1u << static_cast<int>(SwitchId::SelectionDown);
+    constexpr uint32_t left = 1u << static_cast<int>(SwitchId::SelectionLeft);
+    constexpr uint32_t right = 1u << static_cast<int>(SwitchId::SelectionRight);
+    struct Case {
+        const char* name;
+        uint32_t requested, remapped, native, forwarded;
+        int reads, result;
+    };
+    const Case cases[] = {
+        {"native A survives mixed query", a | up, 0, a, a, 1, a},
+        {"native Start survives mixed query", start | right, 0, start, start, 1, start},
+        {"native camera survives mixed query", camera | down, 0, camera, camera, 1, camera},
+        {"native A unchanged", a, 0, a, a, 1, a},
+        {"native aggregate keeps raw bits", a | camera, 0, a | camera, a | camera, 1, a | camera},
+        {"native any-bit semantics", a | start | left, 0, a, a | start, 1, a},
+        {"parked native Up suppressed", up, 0, up, 0, 0, 0},
+        {"parked native Down suppressed", down, 0, down, 0, 0, 0},
+        {"parked native Left suppressed", left, 0, left, 0, 0, 0},
+        {"parked native Right suppressed", right, 0, right, 0, 0, 0},
+        {"native directions cannot confirm", up | down | left | right | a, 0, up | down | left | right, a, 1, 0},
+        {"remapped navigation retained", left, left, 0, 0, 0, 1},
+        {"remapped A retained", a | right, a, 0, a, 1, 1},
+        {"native and remapped results merge", a | left, left, a, a, 1, a | 1},
+        {"unrequested buttons ignored", a | up, camera, camera, a, 1, 0},
+        {"neutral stays neutral", a | start | up, 0, 0, a | start, 1, 0},
+        {"empty query does not call native", 0, a | up, a | up, 0, 0, 0},
+    };
+    for (bool booleanNative : {false, true})
+        for (const auto& c : cases)
+        {
+            int reads = 0;
+            uint32_t forwarded = 0;
+            const int result = DInputRemap::MergeSwitchQuery(c.requested, c.remapped,
+                [&](uint32_t mask) {
+                    ++reads; forwarded = mask;
+                    const int raw = static_cast<int>(c.native & mask);
+                    return booleanNative ? int(raw != 0) : raw;
+                });
+            const int expected = booleanNative ? int(c.result != 0) : c.result;
+            if (result != expected || reads != c.reads || forwarded != c.forwarded)
+            {
+                std::cerr << "FAIL: " << c.name << "; booleanNative=" << booleanNative
+                    << "; result=" << result << " expected=" << expected
+                    << "; native reads=" << reads << " expected=" << c.reads
+                    << "; native mask=" << forwarded << " expected=" << c.forwarded << '\n';
+                std::exit(1);
+            }
+        }
+    std::cout << "PASS: 34 production remapper queries preserve native A/Start/camera, raw/boolean ABI and remapped navigation while suppressing native pedal navigation.\n";
+}
+
 int main()
 {
+    TestSwitchQueries();
     using namespace WheelInput;
     using namespace DInputRemap;
     Calibration wheel{true, 1000, 26000, 61000};

@@ -1,5 +1,13 @@
 # OutRun2006Tweaks-FFB working notes
 
+**October 5 input candidate (source only):** mixed native button/menu-direction
+queries now retain native A/Start/camera while suppressing native pedal navigation.
+Thirty-four production-linked cases reproduce the old failure and pass the fix;
+the existing UI/input/FFB gate suite also passes. Installed runtime `86599699`
+is unchanged. This is not a live diagnosis of the title failure. Read the latest
+addendum in `docs/NATIVE-INPUT-DIAGNOSIS-2026-09-19.md`; no agent focus changes or
+repeated A-only loops. Actual foreground state and title query masks remain unknown.
+
 **October 5 startup recovery:** the Stream Deck copy lacked 110 script/BK game
 assets. Restored only missing files from two agreeing local installs; all hashes
 and 31 protected root/save files verified. Claude's 15:38 CT post-repair test

@@ -103,3 +103,46 @@ Evidence under `build/camera-live-stage6/`:
 Both runs exited normally through Alt+F4. Stage-6 proxy/native DLL hashes, all
 five original setting files, absent user/layout overrides and the empty SaveGame
 were restored and checked before release.
+
+## October 5 follow-up: review before another input attempt
+
+The missing-data startup crash is resolved separately; see
+`STARTUP-ASSETS-2026-10-05.md`. Claude's 15:38 startup/normal-exit test sent no
+input. His later 16:16–16:18 virtual-pad attempt did not establish menu entry.
+Read-only review of current source `f254ac8` and retained logs found:
+
+- The pad connected at 16:16:42.255, before the game log starts at
+  16:16:45.232. Eight `press A 200` commands completed from 16:17:26.021 to
+  16:18:03.983. No Start or direction command is logged during this run.
+  Command completion establishes submission, not game receipt.
+- The game logged `UseNewInput=false`, `ControllerHotPlug=false` and
+  `UseDirectInputRemap=true`. Late pad creation is therefore worth checking in
+  general, but is not supported as this run's cause by these timestamps.
+- `WheelInputGuard::BlockingReason` rejects all switch queries when the game
+  HWND is not foreground. The virtual-pad helper's generic comment about
+  operating without focus does not bypass this consumer rule. Foreground state
+  during the failed presses was not recorded here.
+- `DirectInputRemapHook::SwitchOn_dest` and `SwitchNow_dest` return the remapped
+  mask alone whenever the requested mask contains any menu-direction bit. This
+  intentionally suppresses parked pedal navigation, but also omits original
+  non-direction bits in a mixed query. Whether the title uses such a query is
+  unobserved; this is a source finding, not a diagnosed runtime cause.
+- Existing Confirm diagnostics count only edge queries whose mask is exactly
+  `SwitchId::A` (0x4). They omit Start (0x1) and mixed masks. Historical zero
+  Confirm counts cannot establish that native input was never queried.
+
+The next useful test keeps the backend and display fixed, confirms the actual
+foreground HWND and neutral release, then tries Start and A separately through
+the already-connected pad. Capture native requested masks, raw positive results
+and suspension reasons if it fails. Do not repeat an A-only loop, switch input
+backends at runtime, or remove focus isolation to force a pass. If mixed-mask
+suppression is observed, fix it with source-linked remapper tests while preserving
+pedal-navigation suppression and the original query semantics.
+
+Codex supplied these findings to Claude for reciprocal review through
+`dbce-project-mgmt/inbox/from-astra.md`; no new game run, installed payload,
+setting, input or display change was made. An unattended offline race route and
+gameplay capture/replay remain unimplemented/unqualified.
+
+Private exact log copies and hashes:
+`%LOCALAPPDATA%/Dbce/StagePlayback/SessionEvidence/outrun-input-review-ba2e2750dc7d411db68a5d7408a0320f/receipt.json`.

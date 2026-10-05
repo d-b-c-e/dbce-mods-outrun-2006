@@ -36,6 +36,13 @@ at 4:3; this does not establish race wide rendering or true triples. Coordinator
 evidence is dbce-project-mgmt commit a318c81. Native title confirmation and the
 offline route to driving remain unqualified.
 
+Claude's detailed handoff reports an observation interval ending 15:40:14,
+normal window-close exit within 15 seconds, no new dump and no input sent.
+Its title capture is
+`E:/Source/_archive/2026-10-05/outrun-test/repaired-t045-title.png`.
+The later failed virtual-pad attempt is reviewed separately in the October 5
+addendum to `NATIVE-INPUT-DIAGNOSIS-2026-09-19.md`.
+
 Readback afterward verified all 110 repaired asset hashes and all 30 original
 non-log root/save hashes. The remaining original root file is the runtime log,
 which correctly changed during the new run. Its exact new bytes are retained at

@@ -31,6 +31,101 @@ static HRESULT __stdcall FakeState(void*, DWORD size, void* state) {
 static void RequireInput(bool pass, const char* message) {
     if (!pass) { std::cerr << "FAIL: " << message << '\n'; std::exit(1); }
 }
+// Real selection/InitSlot paths, with local COM stubs only. These device types
+// were observed together on the rig; product names alone did not identify them.
+struct SelectionDevice {
+    void** table;
+    DIDEVICEINSTANCEA info{};
+    DIDEVCAPS caps{};
+    bool capsOk = true;
+};
+static std::vector<SelectionDevice*> selectionDevices;
+static int selectionEnums = 0, selectionCreates = 0;
+static ULONG __stdcall SelectionRelease(void*) { return 0; }
+static HRESULT __stdcall SelectionCaps(SelectionDevice* self, DIDEVCAPS* caps) {
+    if (!self->capsOk) return E_FAIL;
+    *caps = self->caps; return S_OK;
+}
+static HRESULT __stdcall SelectionInfo(SelectionDevice* self, DIDEVICEINSTANCEA* info) {
+    *info = self->info; return S_OK;
+}
+static HRESULT __stdcall SelectionFormat(void*, const DIDATAFORMAT*) { return S_OK; }
+static HRESULT __stdcall SelectionCoop(void*, HWND, DWORD) { return S_OK; }
+static HRESULT __stdcall SelectionObjects(void*, LPDIENUMDEVICEOBJECTSCALLBACKA, void*, DWORD) { return S_OK; }
+static HRESULT __stdcall SelectionAcquire(void*) { return S_OK; }
+static HRESULT __stdcall SelectionCreate(void*, REFGUID guid, IDirectInputDevice8A** device, IUnknown*) {
+    ++selectionCreates;
+    for (auto* entry : selectionDevices) if (IsEqualGUID(guid, entry->info.guidInstance)) {
+        *device = reinterpret_cast<IDirectInputDevice8A*>(entry); return S_OK;
+    }
+    *device = nullptr; return DIERR_DEVICENOTREG;
+}
+static HRESULT __stdcall SelectionEnum(void*, DWORD, LPDIENUMDEVICESCALLBACKA callback, void* context, DWORD) {
+    ++selectionEnums;
+    for (auto* entry : selectionDevices) if (!callback(&entry->info, context)) break;
+    return S_OK;
+}
+static void TestAutomaticPrimarySelection()
+{
+    using namespace DInputRemap;
+    void* deviceTable[32]{};
+    deviceTable[2] = reinterpret_cast<void*>(SelectionRelease);
+    deviceTable[3] = reinterpret_cast<void*>(SelectionCaps);
+    deviceTable[4] = reinterpret_cast<void*>(SelectionObjects);
+    deviceTable[7] = reinterpret_cast<void*>(SelectionAcquire);
+    deviceTable[11] = reinterpret_cast<void*>(SelectionFormat);
+    deviceTable[13] = reinterpret_cast<void*>(SelectionCoop);
+    deviceTable[15] = reinterpret_cast<void*>(SelectionInfo);
+    auto make = [&](DWORD id, const char* name, DWORD type, DWORD axes, bool ffb) {
+        SelectionDevice d{}; d.table = deviceTable;
+        d.info.dwSize = sizeof(d.info); d.info.guidInstance.Data1 = id; d.info.dwDevType = type;
+        strcpy_s(d.info.tszInstanceName, name);
+        d.caps.dwSize = sizeof(d.caps); d.caps.dwAxes = axes;
+        d.caps.dwFlags = ffb ? DIDC_FORCEFEEDBACK : 0;
+        return d;
+    };
+    auto pad = make(1, "Controller (TS-UFB01B-X)", 0x00010215, 8, true);
+    auto wheel = make(2, "MOZA R12 Base", 0x00010318, 3, true);
+    auto shifter = make(3, "DS-8X Shifter", 0x0001021c, 8, true);
+    auto conventional = make(4, "Wheel", DI8DEVTYPE_DRIVING, 2, false);
+    auto noAxes = make(5, "Button-only controller", DI8DEVTYPE_JOYSTICK, 0, true);
+    auto unreadable = make(6, "Unavailable", DI8DEVTYPE_1STPERSON, 8, true); unreadable.capsOk = false;
+    auto virtualJoystick = make(7, "vJoy", DI8DEVTYPE_JOYSTICK, 8, true);
+    void* diTable[11]{};
+    diTable[3] = reinterpret_cast<void*>(SelectionCreate);
+    diTable[4] = reinterpret_cast<void*>(SelectionEnum);
+    void** diObject = diTable;
+    auto* di = reinterpret_cast<IDirectInput8A*>(&diObject);
+    HWND window = reinterpret_cast<HWND>(1);
+    const auto oldWindow = Game::hWnd_ptr; Game::hWnd_ptr = &window;
+    auto choose = [&](const std::string& identity, bool isPrimary = true) {
+        DeviceSlot slot{}; openedGuids.clear(); primaryGuidValid = false;
+        const bool ok = InitSlot(slot, identity, "Fixture", di, isPrimary);
+        return ok ? slot.guid.Data1 : DWORD(0);
+    };
+    selectionDevices = {&pad, &shifter, &wheel, &noAxes, &unreadable, &virtualJoystick};
+    RequireInput(choose("auto") == 2, "primary auto must skip gamepad/supplemental and retain the first-person R12");
+    std::reverse(selectionDevices.begin(), selectionDevices.end());
+    RequireInput(choose("auto") == 2, "wheel selection must not depend on pad enumeration order");
+    selectionDevices = {&pad, &shifter, &noAxes, &unreadable, &virtualJoystick};
+    RequireInput(choose("auto") == 0, "wheel absent must not substitute gamepad, supplemental, no-axis or failed caps");
+    selectionDevices.push_back(&conventional);
+    RequireInput(choose("") == 4, "non-FFB driving wheels remain eligible");
+    selectionDevices = {&pad, &shifter, &virtualJoystick};
+    for (auto* explicitDevice : selectionDevices) {
+        const auto enumerations = selectionEnums;
+        RequireInput(choose(GuidText(explicitDevice->info.guidInstance)) == explicitDevice->info.guidInstance.Data1,
+            "explicit primary GUID must bypass auto filters, including pad/supplemental/virtual names");
+        RequireInput(selectionEnums == enumerations, "explicit primary must not enumerate replacements");
+    }
+    const auto creates = selectionCreates, enumerations = selectionEnums;
+    RequireInput(choose("invalid") == 0 && selectionCreates == creates && selectionEnums == enumerations,
+        "malformed saved identity must not fall back to auto");
+    selectionDevices = {&shifter};
+    RequireInput(choose("auto", false) == 3, "optional auto slots must retain supplemental controls");
+    selectionDevices.clear(); openedGuids.clear(); primaryGuidValid = false; Game::hWnd_ptr = oldWindow;
+    std::cout << "PASS: production primary auto selection rejects pads/supplemental without rejecting the first-person R12; no-wheel/caps failure/order, non-FFB wheel, explicit GUID and optional-slot cases. Fake COM only.\n";
+}
 static void TestPollingEdges()
 {
     using namespace DInputRemap;
@@ -165,6 +260,7 @@ static void TestSwitchQueries()
 
 int main()
 {
+    TestAutomaticPrimarySelection();
     TestSwitchQueries();
     TestPollingEdges();
     using namespace WheelInput;

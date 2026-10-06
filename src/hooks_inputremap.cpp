@@ -161,11 +161,13 @@ namespace DInputRemap
 		IDirectInput8A* di;
 		DeviceCandidate best;
 		bool found;
+		bool primaryWheel;
 	};
 
 	static BOOL CALLBACK EnumDevicesCallback(const DIDEVICEINSTANCEA* inst, VOID* ctx)
 	{
 		auto* ec = static_cast<EnumContext*>(ctx);
+		spdlog::info("DInputRemap:   device type=0x{:08X}", inst->dwDevType);
 		spdlog::info("DInputRemap: Found device: '{}' GUID={{{:08X}-{:04X}-{:04X}-{:02X}{:02X}-{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}}}",
 			inst->tszInstanceName,
 			inst->guidInstance.Data1, inst->guidInstance.Data2, inst->guidInstance.Data3,
@@ -179,6 +181,18 @@ namespace DInputRemap
 		if (IsVirtualDevice(name))
 		{
 			spdlog::info("DInputRemap:   (skipping virtual device)");
+			return DIENUM_CONTINUE;
+		}
+
+		// Names and FFB capability do not identify a wheel: the tooling's virtual
+		// pad presents an ordinary controller name. Exclude known incompatible
+		// primary classes, not every non-DRIVING class (the R12 reports 1STPERSON).
+		// Explicit GUIDs bypass enumeration; optional shifter/aux slots retain
+		// supplemental devices. Do not rewrite saved mappings for a substitute.
+		const auto type = GET_DIDEVICE_TYPE(inst->dwDevType);
+		if (ec->primaryWheel && (type == DI8DEVTYPE_GAMEPAD || type == DI8DEVTYPE_SUPPLEMENTAL))
+		{
+			spdlog::info("DInputRemap:   (skipping gamepad/supplemental for primary wheel auto)");
 			return DIENUM_CONTINUE;
 		}
 
@@ -210,6 +224,11 @@ namespace DInputRemap
 			tmpDev->Release();
 		}
 		spdlog::info("DInputRemap:   {} axes, FFB={}", axisCount, hasFfb);
+		if (ec->primaryWheel && axisCount == 0)
+		{
+			spdlog::info("DInputRemap:   (skipping primary without readable axes)");
+			return DIENUM_CONTINUE;
+		}
 
 		// Rank force-feedback devices above everything else, then by axis count. Axis
 		// count alone is not enough to identify a wheel: a rumble gamepad or a virtual
@@ -307,15 +326,16 @@ namespace DInputRemap
 
 		if (!guidSpecified)
 		{
-			// Auto-detect: enumerate all controllers, pick the one with the most axes
+			// Auto-detect eligible devices, then rank FFB capability and axis count.
 			EnumContext ctx = {};
 			ctx.di = di;
+			ctx.primaryWheel = isPrimary;
 			ctx.found = false;
 			ctx.best = {};
 			di->EnumDevices(DI8DEVCLASS_GAMECTRL, EnumDevicesCallback, &ctx, DIEDFL_ATTACHEDONLY);
 			if (!ctx.found)
 			{
-				spdlog::warn("DInputRemap: {} — no available game controller found", slotName);
+				spdlog::warn("DInputRemap: {} — no eligible automatic controller; select an explicit device GUID", slotName);
 				return false;
 			}
 			targetGuid = ctx.best.guid;

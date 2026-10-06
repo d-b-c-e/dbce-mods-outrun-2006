@@ -5,9 +5,14 @@ queries now retain native A/Start/camera while suppressing native pedal navigati
 Thirty-four production-linked cases reproduce the old failure and pass the fix;
 the existing UI/input/FFB gate suite also passes. Runtime code `b43445c` is now
 installed from the private review package made at packaging-only `685361c`.
-Claude's bounded test passed startup and normal exit (0); title input remains
-**inconclusive**, with Windows Security holding the foreground throughout. Do
-not repeat menu input or bypass focus isolation while that condition persists.
+The unfocused check passed startup/exit. Later focused retries (11:21/11:28)
+froze once and reached title/normal exit once without menu entry. The raw 0/7
+button presses were observed, but saved A/Start wheel bindings are 31/34.
+The new source candidate fixes independently reproduced millisecond-based
+input-edge loss with one snapshot per actual game update; offline suites pass.
+It is not live-qualified and does not claim to fix the unexplained freeze.
+Read `docs/2026-10-06-focused-input-followup.md` before the next bounded check;
+preserve owner bindings and use explicit temporary diagnostic mappings.
 Read `docs/2026-10-06-b43445c-check.md` for the exact artifact and independent
 readback: 110 assets, three payloads and ten owner files match; evidence is
 preserved outside the checkout. No gameplay recording/replay is qualified.

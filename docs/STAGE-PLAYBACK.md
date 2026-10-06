@@ -25,6 +25,14 @@ natural foreground eligibility; don't repeat an unfocused A/Start sequence.
 The read-only asset preflight now resolves relative GameDir against PowerShell's
 location, including Start-Job, and rejects non-filesystem providers.
 
+**Later focused retries:** Windows Security was gone. One run froze, while the
+other reached title and closed normally. Raw Start/A presses appeared as buttons
+7/0 but the retained wheel profile maps them to 34/31. A separately reproduced
+input bug discarded edges whenever a query crossed a millisecond boundary;
+the source candidate now shares snapshots per actual game update. Read the
+[focused follow-up and next diagnostic](2026-10-06-focused-input-followup.md).
+The freeze cause, native menu/race entry and gameplay replay remain unqualified.
+
 ## What exists and was checked
 
 Source `cfc6a6b` includes a production-linked numeric calculation seam:

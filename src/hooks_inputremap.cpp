@@ -27,6 +27,16 @@ extern IDirectInput8A* g_RealDirectInput8;
 
 namespace DInputRemap
 {
+	// The existing game-update loop advances this once per input update, including
+	// each catch-up update. Wall time cannot identify an input frame. Token 1 also
+	// permits one bootstrap snapshot before that loop first runs.
+	static uint64_t inputTick = 1;
+	void BeginInputTick()
+	{
+		ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
+		if (lease && Settings::UseDirectInputRemap && !Settings::UseNewInput) ++inputTick;
+	}
+
 	// ---------- Device slot ----------
 
 	struct DeviceSlot
@@ -40,6 +50,7 @@ namespace DInputRemap
 		bool connected = false;
 		GUID guid{};
 		DWORD lastInitAttempt = 0;
+		uint64_t lastPollTick = 0;
 	};
 
 	static DeviceSlot primary;
@@ -53,8 +64,8 @@ namespace DInputRemap
 	// Overall init state (true once primary succeeds)
 	static bool initialized = false;
 	static bool initAttempted = false;
-	static DWORD lastPollFrame = 0;
-	static uint32_t prevKeyboardMask = 0;
+	static uint64_t lastPollTick = 0;
+	static uint32_t prevKeyboardMask = 0, keyboardMask = 0, keyboardEdges = 0;
 
 	// GUIDs of devices already opened — used to skip during auto-detect
 	static std::vector<GUID> openedGuids;
@@ -440,6 +451,8 @@ namespace DInputRemap
 			AxisName(Settings::DIRemapSteeringAxis), Settings::DIRemapSteeringInvert ? "inv" : "norm",
 			AxisName(Settings::DIRemapAccelAxis), Settings::DIRemapAccelInvert ? "inv" : "norm",
 			AxisName(Settings::DIRemapBrakeAxis), Settings::DIRemapBrakeInvert ? "inv" : "norm");
+		spdlog::info("DInputRemap: Primary confirm bindings — A=button {}, Start=button {} (zero-based)",
+			Settings::DIRemapButtonA, Settings::DIRemapButtonStart);
 
 		// Shifter slot (optional)
 		if (Settings::DIShifterEnabled)
@@ -467,7 +480,8 @@ namespace DInputRemap
 	{
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
         if (!lease) return ;
-		if (!slot.device) return;
+		if (!slot.device || slot.lastPollTick == inputTick) return;
+		slot.lastPollTick = inputTick;
 		slot.previousState = slot.currentState;
 
 		// Poll() errors are common and harmless (many devices don't need polling).
@@ -514,15 +528,16 @@ namespace DInputRemap
 		hpattern.targetGear = target;
 	}
 
+	static uint32_t GetKeyboardMask();
 	static void Poll()
 	{
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
         if (!lease) return ;
-		// Guard: only poll once per frame (GetVolume called 3+ times per frame)
-		DWORD tick = GetTickCount();
-		if (tick == lastPollFrame)
+		// All axis, held, edge and UI reads share one snapshot for this update.
+		if (inputTick == lastPollTick)
 			return;
-		lastPollFrame = tick;
+		lastPollTick = inputTick;
+		const DWORD tick = GetTickCount(); // Diagnostics/retry time only.
 
 		std::vector<DeviceSlot*> sources{ &primary };
 		for (const auto* guid : { &Settings::DIShifterDeviceGuid, &Settings::DIAuxDeviceGuid })
@@ -535,6 +550,9 @@ namespace DInputRemap
 		std::sort(sources.begin(), sources.end());
 		sources.erase(std::unique(sources.begin(), sources.end()), sources.end());
 		for (auto* source : sources) PollSlot(*source);
+		keyboardMask = GetKeyboardMask();
+		keyboardEdges = keyboardMask & ~prevKeyboardMask;
+		prevKeyboardMask = keyboardMask;
 		UpdateHPattern();
 
 		// Reset per-frame H-pattern cache so it's recomputed once this frame
@@ -829,7 +847,7 @@ namespace DInputRemap
 		ApplyPovToMask(OptionalSlot(false), mask);
 
 		// Keyboard fallback
-		mask |= GetKeyboardMask();
+		mask |= keyboardMask;
 
 		return mask;
 	}
@@ -889,18 +907,8 @@ namespace DInputRemap
 		ApplyPovEdgeToMask(OptionalSlot(true), mask);
 		ApplyPovEdgeToMask(OptionalSlot(false), mask);
 
-		// Keyboard edge detection — cached per frame
-		static DWORD lastKbEdgeFrame = 0;
-		static uint32_t cachedKbEdges = 0;
-		DWORD tick = GetTickCount();
-		if (tick != lastKbEdgeFrame)
-		{
-			uint32_t kbNow = GetKeyboardMask();
-			cachedKbEdges = kbNow & ~prevKeyboardMask;
-			prevKeyboardMask = kbNow;
-			lastKbEdgeFrame = tick;
-		}
-		mask |= cachedKbEdges;
+		// Same input-update snapshot as physical buttons and held-key queries.
+		mask |= keyboardEdges;
 
 		return mask;
 	}

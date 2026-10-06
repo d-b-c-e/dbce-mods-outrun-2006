@@ -4,6 +4,8 @@
 #include "overlay/overlay.hpp"
 #include "wheel_input_gate.hpp"
 
+namespace DInputRemap { void BeginInputTick(); }
+
 // from timeapi.h, which we can't include since our proxy timeBeginPeriod etc funcs will conflict...
 typedef struct timecaps_tag {
 	UINT    wPeriodMin;     /* minimum period supported  */
@@ -293,6 +295,7 @@ class ReplaceGameUpdateLoop : public Hook
 
 		for (int curUpdateIdx = 0; curUpdateIdx < numUpdates; curUpdateIdx++)
 		{
+			DInputRemap::BeginInputTick();
 			// Fetch latest input state
 			// (do this inside our update-loop so that any hooked game funcs have accurate state...)
 			Input::Update();

@@ -1,5 +1,14 @@
 // Executes production switch merging and axis readers against memory-only states.
 // Never enumerates, acquires a device, installs hooks or starts the game.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <Windows.h>
+static DWORD fixtureTick = 1000;
+static bool fixtureReturn = false;
+static DWORD FixtureTick() { return fixtureTick; }
+static SHORT FixtureKey(int key) { return key == VK_RETURN && fixtureReturn ? SHORT(0x8000) : 0; }
+#define GetTickCount FixtureTick
+#define GetAsyncKeyState FixtureKey
 #include "../../src/hooks_inputremap.cpp"
 #include <cassert>
 #include <cstdlib>
@@ -12,6 +21,90 @@ static int consumerReleases = 0, consumerUnacquires = 0, borrowedCalls = 0;
 static ULONG __stdcall FakeRelease(void*) { ++consumerReleases; return 0; }
 static HRESULT __stdcall FakeUnacquire(void*) { ++consumerUnacquires; return S_OK; }
 static ULONG __stdcall BorrowedRelease(void*) { ++borrowedCalls; return 0; }
+static DIJOYSTATE2 polledState{};
+static int stateReads = 0;
+static HRESULT __stdcall FakePoll(void*) { return S_OK; }
+static HRESULT __stdcall FakeState(void*, DWORD size, void* state) {
+    assert(size == sizeof(polledState)); ++stateReads;
+    std::memcpy(state, &polledState, size); return S_OK;
+}
+static void RequireInput(bool pass, const char* message) {
+    if (!pass) { std::cerr << "FAIL: " << message << '\n'; std::exit(1); }
+}
+static void TestPollingEdges()
+{
+    using namespace DInputRemap;
+    constexpr uint32_t a = 1u << static_cast<int>(SwitchId::A);
+    constexpr uint32_t right = 1u << static_cast<int>(SwitchId::SelectionRight);
+    void* table[32]{}; table[9] = reinterpret_cast<void*>(FakeState); table[25] = reinterpret_cast<void*>(FakePoll);
+    void** object = table;
+    primary = {};
+    primary.device = reinterpret_cast<IDirectInputDevice8A*>(&object);
+    primary.initialized = primary.connected = true;
+    for (auto& pov : polledState.rgdwPOV) pov = 0xffffffff;
+    Settings::DIShifterDeviceGuid.clear(); Settings::DIAuxDeviceGuid.clear();
+    Settings::DIRemapAccelDeviceGuid.clear(); Settings::DIRemapBrakeDeviceGuid.clear();
+    Settings::DIShifterGearMode = "hpattern";
+    Settings::DIShifterDeviceGuid = "{11111111-2222-3333-0405-060708090A0B}";
+    ParseGuid(Settings::DIShifterDeviceGuid, primary.guid);
+    primaryGuid = primary.guid; primaryGuidValid = true;
+    GameState mode = STATE_TITLE;
+    const auto oldMode = Game::current_mode; Game::current_mode = &mode;
+    Settings::UseDirectInputRemap = true; Settings::UseNewInput = false;
+    hpattern.cooldownFrames = 6;
+    polledState.rgbButtons[0] = polledState.rgbButtons[7] = 0x80;
+    Settings::DIRemapButtonA = 31; Settings::DIRemapButtonStart = 34;
+    Poll();
+    RequireInput(!IsButtonPressedAny(SwitchId::A) && !IsButtonPressedAny(SwitchId::Start),
+        "owner wheel bindings must not silently reinterpret another controller's buttons 0/7");
+    Settings::DIRemapButtonA = 0; Settings::DIRemapButtonStart = 7;
+    RequireInput(IsButtonPressedAny(SwitchId::A) && IsButtonPressedAny(SwitchId::Start),
+        "explicit diagnostic bindings must recognize observed buttons 0/7");
+    RequireInput(BuildSwitchOnMask() & a, "first button edge must be present");
+    const auto ui = ReadUiSnapshot();
+    RequireInput(ui.connected && ui.buttons[0] && (BuildSwitchOnMask() & a),
+        "reading the settings snapshot must not consume gameplay button edges");
+    ++fixtureTick;
+    Poll();
+    RequireInput(BuildSwitchOnMask() & a, "elapsed milliseconds inside one update must not erase a button edge");
+    RequireInput(stateReads == 1, "input queries in one update must share one hardware snapshot");
+    RequireInput(hpattern.cooldownFrames == 5, "shifter cooldown must advance once per update");
+    BeginInputTick(); Poll();
+    RequireInput(stateReads == 2 && !(BuildSwitchOnMask() & a) && (BuildSwitchMask() & a),
+        "next update at the same wall time must read held state without repeating its edge");
+    RequireInput(hpattern.cooldownFrames == 4, "catch-up update must advance shifter cooldown");
+    polledState.rgbButtons[0] = polledState.rgbButtons[7] = 0;
+    BeginInputTick(); Poll();
+    RequireInput(!(BuildSwitchOnMask() & a) && !(BuildSwitchMask() & a), "release must clear held and edge state");
+    polledState.rgdwPOV[0] = 9000;
+    BeginInputTick(); Poll();
+    RequireInput(BuildSwitchOnMask() & right, "POV edge must be available");
+    ++fixtureTick; ReadUiSnapshot(); Poll();
+    RequireInput(BuildSwitchOnMask() & right, "UI/axis reads must not consume a POV edge");
+    BeginInputTick(); Poll();
+    RequireInput(!(BuildSwitchOnMask() & right) && (BuildSwitchMask() & right), "held POV must not repeat its edge");
+    fixtureReturn = true;
+    BeginInputTick(); Poll();
+    RequireInput((BuildSwitchOnMask() & a) && (BuildSwitchMask() & a), "keyboard edge and held state must share snapshot");
+    ++fixtureTick;
+    RequireInput(BuildSwitchOnMask() & a, "wall time must not consume a keyboard edge");
+    fixtureReturn = false; Poll();
+    RequireInput(BuildSwitchMask() & a, "keyboard must remain stable until next input update");
+    BeginInputTick(); Poll();
+    RequireInput(!(BuildSwitchOnMask() & a) && !(BuildSwitchMask() & a), "next update must observe key release");
+    const auto token = inputTick;
+    RequireInput(ConsumerLifecycle::Runtime().Pause(), "idle input fixture can pause");
+    BeginInputTick(); Poll();
+    RequireInput(inputTick == token, "paused lifecycle must not advance input");
+    ConsumerLifecycle::Runtime().Resume();
+    const auto readsBeforeResume = stateReads;
+    BeginInputTick(); Poll();
+    RequireInput(stateReads == readsBeforeResume + 1, "resumed input must refresh on next update");
+    primary = {};
+    primaryGuidValid = false; Settings::DIShifterDeviceGuid.clear();
+    Settings::DIShifterGearMode = "sequential"; Game::current_mode = oldMode;
+    std::cout << "PASS: observed 0/7 versus saved 31/34 bindings; production button/POV/keyboard edges stable across queries and UI reads; held/release, same-millisecond catch-up, shifter cooldown and pause/resume. Fake devices and keyboard only.\n";
+}
 
 static void TestSwitchQueries()
 {
@@ -73,6 +166,7 @@ static void TestSwitchQueries()
 int main()
 {
     TestSwitchQueries();
+    TestPollingEdges();
     using namespace WheelInput;
     using namespace DInputRemap;
     Calibration wheel{true, 1000, 26000, 61000};

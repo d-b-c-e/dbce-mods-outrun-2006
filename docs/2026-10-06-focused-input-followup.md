@@ -216,3 +216,54 @@ start line** (Palm Beach, START gantry, Time 66, 000 km/h, total time running). 
 (one press short); the second reached the start line at about 50 s of navigation. Five start-line captures, no input,
 normal exit 0, responsive throughout. Race view is 4:3-safe 16:9 at 2560x1440 on the primary (Sim Racing layout).
 Evidence (ignored, local): `build/packages/outrun-f021736-race-entry` and `-race-entry2`.
+
+## Independent race-entry readback and selection fix — Codex, 17:00 CT
+
+Inspected the first and fifth start-line captures: Dino 246 GTS at Palm Beach,
+000 km/h throughout, Time 96 -> 66 and Total Time 3.737 -> 33.405 seconds. The
+2560x1440 image is a single 16:9 race view; it does not qualify projected triples.
+The log confirms the successful update-loop hook, pinned pad, disabled driving
+axes and observed Start/A/Right sequence. Normal exit 0, natural focus and device
+type enumeration remain attributed to Claude; the folders contain no separate
+numeric exit or enumeration receipt. The stationary scene is not a recorded drive.
+
+All 45 original review-package entries still validate. The three installed
+DLL/profile files match that package, and each attempt's eight original owner
+files match the current game copy (16 independent comparisons). No game, input,
+device, display or installation operation was performed for this readback.
+Both runs, original owner backups, installed payloads, report and verification
+are preserved in 52 hash-verified files at
+`%LOCALAPPDATA%/Dbce/StagePlayback/SessionEvidence/outrun-f021736-race-entry-20261006`.
+Manifest SHA-256: `D2C26E3D69AA3465727E8BA73F807B6690E060A4FE735EA9E82F7EB510C7AB77`.
+
+Source **cf6e176** fixes primary auto selection without requiring a DRIVING type:
+the reported virtual pad is GAMEPAD, the R12 is 1STPERSON, and the shifter/stalk
+are SUPPLEMENTAL. Primary auto excludes GAMEPAD/SUPPLEMENTAL and candidates with
+zero/unreadable axes before ranking the remaining FFB/axis capabilities. Existing
+virtual-name exclusions remain. Explicit GUIDs bypass these automatic filters;
+optional shifter/aux slots retain supplemental controls. No owner mapping or
+force-output behavior changes. Unknown first-person/joystick devices are still
+ranked candidates, not certified wheels; pin a GUID to resolve ambiguous rigs.
+
+The actual production InitSlot/enumeration path is exercised through memory-only
+x86 COM stubs with the reported device types and deliberately adversarial capability
+values. The old implementation chooses the pad and fails the new assertion. Fixed
+source passes both enumeration orders, no-wheel refusal, unreadable/zero axes,
+non-FFB conventional wheel, explicit pad/virtual/supplemental GUIDs, malformed
+identity refusal and optional-slot selection. Full `Test-WheelSettings.ps1` passes,
+including existing input edges, calibration, force/UI gates and native dispatch.
+The x86 Release build from clean cf6e176 passes; DLL SHA-256
+`7FEE11B514D17C9C46D74C6BA10C419A986F6321A337A641DC23FBCA4C52C2C2`.
+
+This candidate is **not installed or live-qualified**. Keep f021736 installed;
+combine a future replacement with useful native recording discovery rather than
+repeating menu-only runs. The nine source/build/red-green evidence files are saved
+under `SessionEvidence/outrun-auto-selection-cf6e176-20261006`; manifest SHA-256
+`66DCF0F28E46ABD1E51D04EE1283BD8A01A8AC643DF31EFF4E55C10ABF6F8036`.
+
+All 20 toolkit ledger entries are represented. STD-012 remains pending;
+STD-001/003-009/015-019 remain unchecked, and STD-013/020 partial. Race entry
+closes the native startup prerequisite only. Next: bounded read-only pre/post
+local-car-tick discovery and separate force/telemetry calculation versus physical
+delivery admission. No car-state writer, replay claim or force test is authorized
+by this stationary run; no new game launch is queued here.

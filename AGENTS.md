@@ -6,15 +6,27 @@ Its per-game-update snapshots and explicit temporary pad mappings passed the
 12:45 bounded check: Start then A entered the Single Player mode menu; Claude
 reported no freeze and normal exit 0. Independent readback verifies the three
 payloads and all eight backed-up owner files. Owner mappings remain unchanged.
+The later 16:49 run reached the Palm Beach start line through Single Player ->
+OutRun -> Dino 246 GTS (Novice) -> Automatic -> Splash Wave, with neutral axes.
+First/last captures show 000 km/h and a running timer (96 -> 66); Claude reports
+normal exit 0. Both runs' eight original owner files and three installed payloads
+independently match. No game launch is needed to repeat this prerequisite.
 The TS-UFB01B-X device was confirmed by connected/disconnected enumeration to be
 the tooling's virtual pad; automatic wheel selection had applied saved buttons
 31/34 to its actual 0/7. Pin the verified instance for diagnostics.
 Earlier b43445c focused retries froze once and reached title/normal exit once;
 the freeze cause remains unexplained. Do not add a millisecond polling fallback
 that breaks the fixed update contract. Read docs/2026-10-06-focused-input-followup.md
-for exact evidence, reciprocal review and next-check constraints. The next live
-prerequisite is an offline race-entry check; driving input, physical wheel/FFB
-and gameplay recording/replay are still unqualified.
+for exact evidence, reciprocal review and next-check constraints. Next is
+read-only pre/post local-car-tick discovery with separate output admission;
+driving input, physical wheel/FFB and gameplay recording/replay remain unqualified.
+
+**Source follow-up cf6e176 (not installed):** primary auto selection excludes
+gamepad/supplemental types and unreadable/zero-axis candidates. It does not require
+DRIVING: the observed R12 reports 1STPERSON (0x00010318). Explicit GUID choices and
+optional slots retain their behavior. Real production InitSlot/enum fake-COM cases
+fail before the change and pass afterward; the full input/UI fixture and x86
+Release build pass. Preserve installed f021736 for the next combined probe check.
 
 **October 5 startup recovery:** the Stream Deck copy lacked 110 script/BK game
 assets. Restored only missing files from two agreeing local installs; all hashes

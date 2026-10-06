@@ -40,9 +40,26 @@ mode menu, confirmed in the retained screenshot/log; normal exit 0 was reported.
 All three payloads and eight backed-up owner files independently match afterward.
 The TS-UFB01B-X identity was confirmed by pad-connected/disconnected enumeration;
 its name-based virtual-device filter had missed the test pad. Preserve the
-working candidate for one bounded offline OutRun race-entry check with neutral
-axes, no physical outputs and exact owner restoration. This is the next native
-prerequisite for read-only phase/pose discovery, not a recording-ready adapter.
+working candidate for bounded offline checks with neutral axes, no physical
+outputs and exact owner restoration. The later race entry below closes this
+native prerequisite, without qualifying a recording adapter.
+
+**16:49 offline race entry passed:** exact installed f021736 reached Palm Beach,
+with 000 km/h and the race timer advancing across five retained frames. Route:
+title Start -> A Single Player -> Right OutRun -> A -> A Dino 246 GTS (Novice) ->
+A Automatic -> A Splash Wave -> A start line. Those are observed screen choices,
+not permission for a blind timed confirmation loop. Stop on a different screen,
+lost natural focus, sign-in/network/ranking UI or timeout. Claude reports exit 0;
+independent readback matches all three payloads and eight owner files against
+both attempts' backups. Keep the pad GUID explicitly pinned while the R12 is on.
+No further title/menu-only repeat is needed. Read-only native tick/pose discovery
+and preserved model signals under a separate output mute are next.
+
+The source-only cf6e176 fix rejects gamepads/supplemental controls for primary
+auto selection, retaining non-DRIVING wheels such as this R12 and all explicit
+GUID selections. It passes actual x86 production-linked fake-COM tests and builds;
+it is not installed or live-qualified. Combine any future installation with a
+useful discovery candidate, preserving the accepted f021736 package and owner tune.
 
 ## What exists and was checked
 

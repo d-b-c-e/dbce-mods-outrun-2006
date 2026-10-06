@@ -31,7 +31,18 @@ other reached title and closed normally. Raw Start/A presses appeared as buttons
 input bug discarded edges whenever a query crossed a millisecond boundary;
 the source candidate now shares snapshots per actual game update. Read the
 [focused follow-up and next diagnostic](2026-10-06-focused-input-followup.md).
-The freeze cause, native menu/race entry and gameplay replay remain unqualified.
+The freeze cause remained unexplained; the later menu pass below supersedes the
+pending menu-entry status without qualifying race input or gameplay replay.
+
+**12:45 menu entry passed:** Claude installed exact `f021736` and used the
+temporary pinned-pad mappings. One Start then one A entered the Single Player
+mode menu, confirmed in the retained screenshot/log; normal exit 0 was reported.
+All three payloads and eight backed-up owner files independently match afterward.
+The TS-UFB01B-X identity was confirmed by pad-connected/disconnected enumeration;
+its name-based virtual-device filter had missed the test pad. Preserve the
+working candidate for one bounded offline OutRun race-entry check with neutral
+axes, no physical outputs and exact owner restoration. This is the next native
+prerequisite for read-only phase/pose discovery, not a recording-ready adapter.
 
 ## What exists and was checked
 

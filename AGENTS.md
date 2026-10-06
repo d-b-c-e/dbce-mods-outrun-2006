@@ -1,21 +1,20 @@
 # OutRun2006Tweaks-FFB working notes
 
-**October 6 installed input candidate:** mixed native button/menu-direction
-queries now retain native A/Start/camera while suppressing native pedal navigation.
-Thirty-four production-linked cases reproduce the old failure and pass the fix;
-the existing UI/input/FFB gate suite also passes. Runtime code `b43445c` is now
-installed from the private review package made at packaging-only `685361c`.
-The unfocused check passed startup/exit. Later focused retries (11:21/11:28)
-froze once and reached title/normal exit once without menu entry. The raw 0/7
-button presses were observed, but saved A/Start wheel bindings are 31/34.
-The new source candidate fixes independently reproduced millisecond-based
-input-edge loss with one snapshot per actual game update; offline suites pass.
-It is not live-qualified and does not claim to fix the unexplained freeze.
-Read `docs/2026-10-06-focused-input-followup.md` before the next bounded check;
-preserve owner bindings and use explicit temporary diagnostic mappings.
-Read `docs/2026-10-06-b43445c-check.md` for the exact artifact and independent
-readback: 110 assets, three payloads and ten owner files match; evidence is
-preserved outside the checkout. No gameplay recording/replay is qualified.
+**October 6 installed input candidate:** `f021736` is installed, DLL
+`E18455496EFB59EB33A9F592889F9B12991C1519EB8A8E6D37268AF132D1AE78`.
+Its per-game-update snapshots and explicit temporary pad mappings passed the
+12:45 bounded check: Start then A entered the Single Player mode menu; Claude
+reported no freeze and normal exit 0. Independent readback verifies the three
+payloads and all eight backed-up owner files. Owner mappings remain unchanged.
+The TS-UFB01B-X device was confirmed by connected/disconnected enumeration to be
+the tooling's virtual pad; automatic wheel selection had applied saved buttons
+31/34 to its actual 0/7. Pin the verified instance for diagnostics.
+Earlier b43445c focused retries froze once and reached title/normal exit once;
+the freeze cause remains unexplained. Do not add a millisecond polling fallback
+that breaks the fixed update contract. Read docs/2026-10-06-focused-input-followup.md
+for exact evidence, reciprocal review and next-check constraints. The next live
+prerequisite is an offline race-entry check; driving input, physical wheel/FFB
+and gameplay recording/replay are still unqualified.
 
 **October 5 startup recovery:** the Stream Deck copy lacked 110 script/BK game
 assets. Restored only missing files from two agreeing local installs; all hashes

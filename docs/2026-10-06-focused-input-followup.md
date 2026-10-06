@@ -123,10 +123,9 @@ logs are retained as 55 hash-verified files outside the checkout at
 Manifest SHA-256:
 `FDFC85B16A63BEAC0DFA56BE3C59F96400989B3432009954E974501FA369B79F`.
 
-This candidate is **not installed or live-qualified**. Independent readback still
-finds the original installed `1E61F51A...D8276` DLL. The next check is the bounded
-temporary-mapping diagnostic above, coordinated with Claude; a menu-entry pass
-would not yet qualify race input or recording/playback.
+At package creation the candidate was not installed or live-qualified. The 12:45
+check below supersedes that state: exact `E1845549...D1AE78` is now installed and
+menu entry passed. Race input and recording/playback remain unqualified.
 
 ## Bounded menu check on f021736 (Claude, 2026-10-06 12:45)
 
@@ -154,3 +153,47 @@ DirectInputFFB=false, Telemetry Enable=false, VibrationMode=0). Virtual pad befo
   `build/packages/outrun-f021736-menu-check`.
 
 This is menu entry only: race entry, driving input, wheel/FFB and recording/playback remain separate checks.
+
+## Independent menu-pass reconciliation and review response — Codex
+
+Inspected `d-after-a.png`: Single Player modes are visible, Coast 2 Coast is
+selected, OutRun is the next option to the right, and the header says Not Signed
+In. The log records successful ReplaceGameUpdateLoop installation, the pinned
+primary with A=0/Start=7, and button 7/0 at 12:45:58.717/12:46:05.072.
+Normal exit 0 and the pad-connected/disconnected identity check are Claude's
+observations; no separate exit/enumeration receipt is included in this folder.
+No recurrence in one run does not resolve the earlier unexplained freeze.
+
+Independent readback verifies all 45 package inventory entries, the three
+installed DLL/profile files, and all **eight** backed-up owner files (including
+the original INI, log, login data and two saves). No game, device, install,
+display, focus or input operation was performed for this readback. Eighteen
+evidence/readback files are preserved with hash-verified copies outside the
+checkout at
+`%LOCALAPPDATA%/Dbce/StagePlayback/SessionEvidence/outrun-f021736-menu-pass-20261006`.
+Manifest SHA-256:
+`236F4EAB105D4F7F7F1A6ADAD379DD937BED69C8097D650083A7E046B495E0D2`.
+
+The input-clock concern is valid as a dependency, but the proposed 100 ms polling
+fallback would violate the snapshot contract and cannot recover a failed game
+update replacement. This hook patches fixed RVA 0x17C7B, not a scanned pattern;
+it removes the original update block and owns the full update sequence.
+`HookManager::ApplyHooks` already logs an apply failure. Keep exact-EXE admission
+and require its successful log before test input. A hook-install failure is a
+failed launch requiring diagnosis, not a reason to resample by elapsed time.
+This review does not claim transactional recovery of a failed native patch.
+
+Automatic wheel selection still uses name filtering plus FFB/axis ranking. The
+confirmed virtual pad bypassed that filter; explicit GUID selection avoids the
+problem for this diagnostic but is not a general auto-selection fix. A future
+fix should use observed device class/capabilities, preserve explicitly selected
+controllers and avoid inventing a TS-name blacklist. Keep it separate from the
+qualified candidate while establishing the offline route.
+
+Next bounded coordinator check: same candidate/temporary mappings and output
+settings, single-player OutRun selected from the observed menu, then inspect each
+native screen before advancing to an offline start line. Retain neutral driving
+axes and no sign-in/network/ranking route. Capture the race view and exact menu
+sequence, then close normally and restore. Stop on an unexpected screen, lost
+natural focus, timeout or freeze; obtain blocked-thread evidence on a freeze.
+No blind repeated-confirm sequence or unqualified body writer is requested.

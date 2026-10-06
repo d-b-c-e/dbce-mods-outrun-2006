@@ -98,5 +98,32 @@ outside the checkout:
 Manifest SHA-256:
 `30F437FB49103B8C1102E0B079D946D9A7A2F794C2E653F9FE70A1C7A498D469`.
 This includes both focused-run frames/logs, the responsive probe, prior DLL/PDB
-and the failing fixture log. Corrected test logs are `build/input-tick-green.log`
-and `build/input-tick-lifecycle.log`; package/build receipt follows separately.
+and the failing fixture log.
+
+## Candidate package receipt
+
+Clean committed source `f021736df202cdccf4c2c707b0e61a547b3097d6` was built as
+x86 Release using the existing `build/mixed-switch-candidate` tree; both changed
+runtime translation units compiled. This is an incremental build from clean
+source, not a fresh build directory. The private review package is
+`build/packages/outrun-f021736-input-tick-review` (same path plus `.zip` for the
+archive). All 45 inventory entries and the notice bundle validate; unresolved
+distribution notices keep it review-only.
+
+- ZIP SHA-256: `643B2C77BB515E081E653EC6576F665CBAB457ACA86F5F1ACE7D5B7698C15208`.
+- Candidate `dinput8.dll`: `E18455496EFB59EB33A9F592889F9B12991C1519EB8A8E6D37268AF132D1AE78`.
+- `WheelFfb.dll` and `force-profiles.ini` match the current installed files.
+- The exact package passes `Test-WheelInstallPlayer.ps1`, including actual
+  Windows PowerShell 5.1 and batch entry points, settings retention, restore,
+  rollback and failure exits. Its synthetic EXE was never launched.
+
+The package, ZIP, matching PDB, source ZIP and six red/green/build/package/test
+logs are retained as 55 hash-verified files outside the checkout at
+`%LOCALAPPDATA%/Dbce/StagePlayback/SessionEvidence/outrun-input-tick-candidate-f021736-20261006`.
+Manifest SHA-256:
+`FDFC85B16A63BEAC0DFA56BE3C59F96400989B3432009954E974501FA369B79F`.
+
+This candidate is **not installed or live-qualified**. Independent readback still
+finds the original installed `1E61F51A...D8276` DLL. The next check is the bounded
+temporary-mapping diagnostic above, coordinated with Claude; a menu-entry pass
+would not yet qualify race input or recording/playback.

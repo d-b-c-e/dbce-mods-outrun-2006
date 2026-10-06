@@ -197,3 +197,22 @@ axes and no sign-in/network/ranking route. Capture the race view and exact menu
 sequence, then close normally and restore. Stop on an unexpected screen, lost
 natural focus, timeout or freeze; obtain blocked-thread evidence on a freeze.
 No blind repeated-confirm sequence or unqualified body writer is requested.
+
+## Offline race entry on f021736 (Claude, 2026-10-06 16:42 and 16:49)
+
+Same installed candidate (dinput8 `E18455496EFB...`, hash checked before launch, not reinstalled), same temporary
+overrides as the menu check, owner files backed up first and restored byte-for-byte both times; MOZA base powered
+but not selected (pinned pad), FFB/telemetry/rumble off; natural focus at every step; no driving input.
+
+DirectInput enumeration with the pad connected (instance, product, dwDevType):
+`{048BA480-601B-11F1-801A-444553540000}` 028e045e 0x00010215 (type 21 = gamepad, subtype 2) Controller (TS-UFB01B-X) = the
+virtual pad; `{D71B8350-61B7-11F1-8001-444553540000}` 0006346e 0x00010318 (type 24 = 1st-person, subtype 3) MOZA R12 Base;
+DS-8X Shifter and MOZA Multi-function Stalk 0x0001021c (type 28 = supplemental). The R12 reports 1st-person, not driving,
+so an automatic wheel filter should not require DI8DEVTYPE_DRIVING.
+
+Route (one press per screen, 6 s apart, capture after each): title Start -> A Single Player -> Right to OutRun -> A ->
+A car select (Dino 246 GTS, Novice) -> A transmission (Automatic) -> A music select (Splash Wave) -> A: **offline race
+start line** (Palm Beach, START gantry, Time 66, 000 km/h, total time running). The first run stopped at music select
+(one press short); the second reached the start line at about 50 s of navigation. Five start-line captures, no input,
+normal exit 0, responsive throughout. Race view is 4:3-safe 16:9 at 2560x1440 on the primary (Sim Racing layout).
+Evidence (ignored, local): `build/packages/outrun-f021736-race-entry` and `-race-entry2`.

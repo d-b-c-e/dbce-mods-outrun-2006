@@ -48,12 +48,17 @@ cost force feedback, not stop the game from starting. CMake copies it beside
 ## Build, deploy, test
 
 ```bash
-cmake --build build --config Release --target outrun2006tweaks
+cmake --build build/mixed-switch-candidate --config Release --target outrun2006tweaks
 ```
 
 Needs Visual Studio 2022 Build Tools (C++ workload) and CMake; `generate_vs2022.bat`
-configures from scratch. Output is `build/bin/` — `dinput8.dll` **and**
+configures from scratch. This moved checkout's legacy `build/CMakeCache.txt`
+still references the old path. The verified October 5–6 build above outputs
+`build/mixed-switch-candidate/bin/` — `dinput8.dll` **and**
 `WheelFfb.dll`. Copy both next to `OR2006C2C.EXE`.
+For a package, pass that exact bin directory with the
+`Package-WheelSettings.ps1 -RuntimeBuildDirectory` option; do not accidentally
+package the old `build/bin`.
 
 Close the game before deploying; it locks the DLL.
 

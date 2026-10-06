@@ -1,12 +1,16 @@
 # OutRun2006Tweaks-FFB working notes
 
-**October 5 input candidate (source only):** mixed native button/menu-direction
+**October 6 installed input candidate:** mixed native button/menu-direction
 queries now retain native A/Start/camera while suppressing native pedal navigation.
 Thirty-four production-linked cases reproduce the old failure and pass the fix;
-the existing UI/input/FFB gate suite also passes. Installed runtime `86599699`
-is unchanged. This is not a live diagnosis of the title failure. Read the latest
-addendum in `docs/NATIVE-INPUT-DIAGNOSIS-2026-09-19.md`; no agent focus changes or
-repeated A-only loops. Actual foreground state and title query masks remain unknown.
+the existing UI/input/FFB gate suite also passes. Runtime code `b43445c` is now
+installed from the private review package made at packaging-only `685361c`.
+Claude's bounded test passed startup and normal exit (0); title input remains
+**inconclusive**, with Windows Security holding the foreground throughout. Do
+not repeat menu input or bypass focus isolation while that condition persists.
+Read `docs/2026-10-06-b43445c-check.md` for the exact artifact and independent
+readback: 110 assets, three payloads and ten owner files match; evidence is
+preserved outside the checkout. No gameplay recording/replay is qualified.
 
 **October 5 startup recovery:** the Stream Deck copy lacked 110 script/BK game
 assets. Restored only missing files from two agreeing local installs; all hashes
@@ -63,7 +67,10 @@ of live controls, physical force or camera acceptance.
   verified frozen package. `sourceCommit`/`runtimeSourceCommit` retain its runtime
   identity; `installerSourceCommit`/`packagingSourceCommit` identify the repack.
 
-Build: `cmake --build build --config Release --target outrun2006tweaks`.
+Build this checkout with `cmake --build build/mixed-switch-candidate --config Release --target outrun2006tweaks`.
+The legacy `build/CMakeCache.txt` names the old repository path; preserve its
+evidence and do not use its stale output. Package the verified new bin folder
+with `-RuntimeBuildDirectory build/mixed-switch-candidate/bin`.
 On this machine CMake is under VS2022 BuildTools `Common7/IDE/CommonExtensions/
 Microsoft/CMake/CMake/bin`. Commit/push changes with `[skip ci]` when hosted CI
 is not requested. Live game/device tests require the coordinator's serial slot;

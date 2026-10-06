@@ -3,7 +3,9 @@
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$GameDir)
 $ErrorActionPreference='Stop'
-$root=[IO.Path]::GetFullPath($GameDir).TrimEnd('\')
+$provider=$null; $drive=$null
+$root=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($GameDir,[ref]$provider,[ref]$drive).TrimEnd('\')
+if ($provider.Name -ne 'FileSystem') { throw 'GameDir must be a filesystem path.' }
 $manifest=Get-Content (Join-Path $PSScriptRoot '../docs/game-data-required.json') -Raw | ConvertFrom-Json
 if($manifest.schema -ne 'outrun.required-game-data@1'){throw 'Unknown game-data contract'}
 $exe=Join-Path $root 'OR2006C2C.EXE'

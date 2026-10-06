@@ -14,6 +14,17 @@ before a new launch. Claude's 15:38 CT test reached title and exited normally;
 native title confirmation and an offline driving route still need qualification. See
 [the repair evidence](STARTUP-ASSETS-2026-10-05.md).
 
+**October 6 qualification:** the mixed-switch fix `b43445c` is now installed.
+Its bounded virtual-pad test passed startup and exit 0, but never established
+native menu entry: Windows Security held the foreground throughout and the
+existing focus gate applies. Keep this **inconclusive**, not an input fix failure
+or a gameplay pass. The owner must deal with that dialog; no focus stealing or
+gate bypass is authorized. Read [the exact package and restored-state
+verification](2026-10-06-b43445c-check.md). The next native-entry attempt requires
+natural foreground eligibility; don't repeat an unfocused A/Start sequence.
+The read-only asset preflight now resolves relative GameDir against PowerShell's
+location, including Start-Job, and rejects non-filesystem providers.
+
 ## What exists and was checked
 
 Source `cfc6a6b` includes a production-linked numeric calculation seam:

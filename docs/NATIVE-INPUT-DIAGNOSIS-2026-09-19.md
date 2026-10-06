@@ -186,3 +186,21 @@ SHA256 `1E61F51AB877AD317EDB4B9C7AC61DCECA5DD52B5BD4D6A083B70C8F01CD8276`;
 it is not a release package or a deployed candidate. Read-only verification still
 finds installed DINPUT8.dll SHA256
 `1F534047BF52E19062B30E194FC56148AD3A8F38EA53BF249485121F441FBBA6`.
+
+### October 6 installed candidate — unfocused test is inconclusive
+
+The preceding source-only/old-install statements are historical. Claude packaged
+and installed the fixed runtime, then connected the pad before the no-argument
+launch from the correct working directory. Start, A and subsequent A presses did
+not leave title/attract. The foreground remained Windows Security (`PickerHost`),
+so this does not exercise native focused dispatch and does not disprove the fix.
+Normal close returned 0 and the owner's files were restored. Codex verified the
+package, installed payloads, required assets and backed-up owner files read-only,
+and inspected the title/attract contact sheet. See
+[the exact evidence](2026-10-06-b43445c-check.md).
+
+Do not repeat input while the same focus condition persists. Do not turn off
+focus protection to make it progress. After the owner resolves the dialog, the
+next bounded test can distinguish native focused title/menu entry; only actual
+offline player control can qualify the discovery recorder's game tick and pose
+fields. A title image or attract loop is not that evidence.

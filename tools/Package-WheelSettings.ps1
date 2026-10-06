@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param([string]$OutputDirectory, [string]$RuntimePackageDirectory, [switch]$ReviewOnly)
+# -RuntimeBuildDirectory: a clean build's bin folder (e.g. build/mixed-switch-candidate/bin) instead of the
+# legacy build/bin; it must be built from this commit (packaging records HEAD as the runtime source).
+param([string]$OutputDirectory, [string]$RuntimePackageDirectory, [string]$RuntimeBuildDirectory, [switch]$ReviewOnly)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'Validate-Package.ps1')
@@ -7,6 +9,7 @@ $noticeIndex = Assert-ThirdPartyNotices $root
 $packagingCommit = (& git -C $root rev-parse HEAD).Trim()
 $runtimeCommit = $packagingCommit
 $runtimeDirectory = Join-Path $root 'build/bin'
+if ($RuntimeBuildDirectory) { $runtimeDirectory = (Resolve-Path -LiteralPath $RuntimeBuildDirectory).Path }
 if ($RuntimePackageDirectory) {
     $runtimeDirectory = (Resolve-Path -LiteralPath $RuntimePackageDirectory).Path
     $frozen = Get-Content -LiteralPath (Join-Path $runtimeDirectory 'package-manifest.json') -Raw | ConvertFrom-Json

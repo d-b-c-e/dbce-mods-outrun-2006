@@ -127,3 +127,30 @@ This candidate is **not installed or live-qualified**. Independent readback stil
 finds the original installed `1E61F51A...D8276` DLL. The next check is the bounded
 temporary-mapping diagnostic above, coordinated with Claude; a menu-entry pass
 would not yet qualify race input or recording/playback.
+
+## Bounded menu check on f021736 (Claude, 2026-10-06 12:45)
+
+Source review first: `BeginInputTick` once per real update in `ReplaceGameUpdateLoop` (whose `validate()` is
+unconditional), per-slot `lastPollTick` so a slot is sampled once per update, keyboard held/edge masks taken in
+the same `Poll` snapshot. Looks right. One note: if that hook's pattern ever fails to apply, `inputTick` stays 1
+and remapped input stops after the bootstrap poll; a logged fallback (for example resample when no tick arrived for
+100 ms) would make that visible instead of silent.
+
+**Device identity:** `Controller (TS-UFB01B-X)` (VID 045E, PID 028E, instance
+`{048BA480-601B-11F1-801A-444553540000}`) is the ViGEm virtual Xbox pad from the test tooling: it appears in a
+DirectInput enumeration only while `dbce-virtual-pad` runs, with the same instance GUID. With the MOZA base off,
+`auto` selected the virtual pad as the primary wheel and applied the wheel's buttons (A=31, Start=34). Auto-select
+should probably never take a gamepad-class device as the wheel.
+
+Run: candidate installed with its own installer (backup `.wheel-settings-backups\20261006-174528-537-db557049`,
+dinput8 `E18455496EFB...`); owner INI/lods/overlay/imgui/login/log/SaveGame backed up first. Temporary overrides
+exactly as listed above (pinned instance, ButtonA=0, ButtonStart=7, three axes -1, shifter/aux DeviceGuid empty,
+DirectInputFFB=false, Telemetry Enable=false, VibrationMode=0). Virtual pad before an ordinary no-argument launch.
+
+- t+20 naturally in front; neutral; one Start, then one A, 6 s apart: **menu entry**, the Single Player mode screen
+  (Coast 2 Coast / OutRun / Heart Attack) after A; stopped there (4 more captures, no input).
+- Responsive at every check, no freeze, normal exit 0. Log:  - DIRemapDeviceGuid: {048BA480-601B-11F1-801A-444553540000}; DInputRemap: Primary opened — 5 axes, 10 buttons, 1 POVs; DInputRemap: Primary confirm bindings — A=button 0, Start=button 7 (zero-based)
+- Owner files restored byte-for-byte afterwards; the candidate stays installed. Evidence (ignored, local):
+  `build/packages/outrun-f021736-menu-check`.
+
+This is menu entry only: race entry, driving input, wheel/FFB and recording/playback remain separate checks.

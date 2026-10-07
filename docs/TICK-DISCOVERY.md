@@ -85,9 +85,11 @@ the game's cleanup, and injects a discovery exception without interrupting exit.
 
 - No replay, writer or ownership.
 - The force mute (step 2) is not done.
-- No live run yet. The x86 Release DLL builds in `build/mixed-switch-candidate` (`dinput8.dll` `73432838D92B...`); it is neither packaged nor installed.
-- Whether `GamePlCar_Ctrl` runs once per update, which side holds the solved pose, and what the matrices mean are
-  exactly what a first offline window should show.
+- The first stationary run below used the packaged/installed private candidate
+  `dinput8.dll` `73432838D92B...`. This is not a public release or playback qualification.
+- The stationary window observes one hook pair per recorded update and changes
+  inside the call. Moving-car behavior, units, complete pose ownership and matrix
+  roles are not established.
 
 ## Closing safely (after Astra's review, 2026-10-07)
 
@@ -132,14 +134,23 @@ was replaced.
 **What the window shows (stationary kart at the Palm Beach start line):**
 - **One car tick per real update.** Every in-game update had exactly one pre/post pair (121 pairs in mode 13,
   2,818 in mode 16). `sprani_num_ticks` was 1 except for 12 catch-up updates (8 and 2).
-- **`GamePlCar_Ctrl` is the pose authority.** `position_14` and `matrix_70` changed inside the call in 2,700 of
-  2,939 pairs and never between ticks (post of update n equals pre of update n+1). The post side holds the solved
-  pose; nothing else wrote the pose between ticks in this window.
-- **Values are small.** `field_1c4` stayed at or below 0.00016, and position was near 0 (x 0 to 7.6e-5) for a
-  kart at rest. Units and frames still need a moving window.
+- **Observed update boundary.** `position_14` and `matrix_70` changed inside the call in 2,700 of
+  2,939 pairs. Each recorded post equals the next recorded pre for these fields.
+  That comparison cannot exclude intervening writes which restore the same value,
+  or establish ownership of the complete rendered pose. Matrix_B0 and matrix_F0
+  changed inside 2,901 and 1,898 pairs respectively; their roles still need research.
+- **Small stationary variation.** `field_1c4` stayed at or below 0.00016; position
+  x ranged from -5.58e-5 to 7.83e-5, y from 0 to 0.02025 and z near -16.
+  Units and coordinate frames still need a moving window.
 - The median call took 114 µs (max 737 µs).
 
 **Limits:** stationary, one stage, one car, no driving input. The matrices' roles, units and the moving-car
 behaviour are not established, and nothing here qualifies a writer or replay. Evidence (local, private):
 `E:\Source\_archive\2026-10-07\outrun-discovery-20261007-123210` (11 frames, game log, owner-before copies, and
 `discovery-4025516d` with the request, arming provenance, data and outcome).
+
+**Independent readback:** [rows, frames, package and restoration checks](2026-10-07-live-discovery-readback.md)
+confirm 2,939 ordered pairs, 45 package files, three installed runtime files and
+eight restored owner files. The car rows span 48.958 seconds within the 60-second
+observation window; 12 catch-up pairs have ticks greater than one. Normal exit
+code 0 remains Claude-reported. No new runtime test was needed for this review.

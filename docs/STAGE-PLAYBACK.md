@@ -7,6 +7,15 @@ setting or native hook changed during this intake. DRIVE's completed diagnostic
 allowed this follow-up to begin; its Unity adapter cannot qualify these native
 x86 hooks.
 
+**October 7 checkpoint:** reviewed private runtime 069fe41 is now installed.
+Claude's stationary Palm Beach discovery and an independent readback confirm
+5,878 rows / 2,939 ordered pre/post pairs, matching package/runtime hashes and
+eight restored owner files. See [the current evidence and limits](2026-10-07-live-discovery-readback.md).
+This supersedes historical installed-candidate and no-live-discovery wording
+below. The next work is producer-preserving output mute and moving-state
+discovery; no title or stationary start-line repeat is needed. Complete pose
+ownership, matrix/units and a gameplay writer remain unqualified.
+
 **Later startup recovery:** Claude's installed-copy test crashed with missing
 script data. The 110 absent script/BK assets are restored and hash-verified;
 native hooks, settings and saves remain unchanged. Run `tools/Test-GameData.ps1`
@@ -113,8 +122,10 @@ would not prove unattended launch. See `docs/NATIVE-INPUT-DIAGNOSIS-2026-09-19.m
    *Source/fixtures exist (2026-10-07, [TICK-DISCOVERY.md](TICK-DISCOVERY.md)).
    All four original findings are closed in 069fe41: 100 discovery checks,
    production lifecycle suites and 33 independent source-linked fault checks
-   pass [re-review](2026-10-07-tick-discovery-review.md). Packaging is clear from
-   source review; no live discovery or output-mute qualification yet.*
+   pass [re-review](2026-10-07-tick-discovery-review.md). The candidate was then
+   packaged/installed and its first stationary discovery independently checked
+   [here](2026-10-07-live-discovery-readback.md). No original-force capture,
+   producer-preserving mute or gameplay replay is qualified by that window.*
 2. Refactor the existing calculation seam so muted capture retains normal
    configured model requests without creating a device. Preserve original
    state/config/profile identity and label unavailable channels. Exercise all

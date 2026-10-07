@@ -1,5 +1,16 @@
 # OutRun2006Tweaks-FFB working notes
 
+**October 7 live discovery readback:** the reviewed 069fe41 private candidate is
+now installed (proxy 73432838; native/profile unchanged). Claude's stationary
+Palm Beach case has 5,878 rows / 2,939 ordered pairs, independently checked;
+45 package hashes, three installed runtime files and eight restored owner files
+match. Two retained frames show 000 km/h and an advancing timer. Read
+`docs/2026-10-07-live-discovery-readback.md`. This supersedes the installed
+f021736/no-live-run statements below, which describe the earlier checkpoints.
+The hooked call changes the observed pose fields; complete pose ownership,
+matrix roles, moving-car units and a writer remain unqualified. Producer-preserving
+output mute and gameplay replay are still unfinished. No stationary rerun needed.
+
 **October 7 read-only discovery review:** 069fe41 closes all four a181519
 findings. The 100-check discovery suite, production lifecycle suites and 33
 independent source-linked fault checks pass. Cleanup precedes fallible saving;

@@ -5,6 +5,7 @@
 static HWND FixtureForeground() { return reinterpret_cast<HWND>(1); }
 #define GetForegroundWindow FixtureForeground
 #include "../../src/hooks_dinputffb.cpp"
+namespace TickDiscovery { void Observe(EVWORK_CAR*, bool) {} void NoteHooks(bool, bool) {} } // inert without an armed window
 #include <cassert>
 #include <future>
 #include <iostream>

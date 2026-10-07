@@ -16,6 +16,7 @@
 
 namespace FFB { void FinalizeForExit(); void SilenceForLifecycle(); void LifecycleIdle(); }
 namespace DInputRemap { void FinalizeForExit(); }
+namespace TickDiscovery { void FinalizeForExit(); }
 void InputManager_FinalizeForExit();
 namespace OutRunLifecycle {
 static unsigned char* image = nullptr;
@@ -81,6 +82,7 @@ static bool Pin(void* address) {
 static void FinalizeAtOuterBoundary() {
     auto& gate = ConsumerLifecycle::Runtime();
     if (!gate.ClaimFinalization()) return;
+    TickDiscovery::FinalizeForExit(); // writes an armed window as incomplete; no device or game state
     FFB::FinalizeForExit();
     DInputRemap::FinalizeForExit();
     InputManager_FinalizeForExit();

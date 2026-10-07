@@ -889,6 +889,8 @@ static void SampleSurface(EVWORK_CAR* car, float& roughness, DWORD& waterFlag)
 // ====================================================================
 // Hook class -- self-registering via static instance
 // ====================================================================
+namespace TickDiscovery { void Observe(EVWORK_CAR* car, bool post); void NoteHooks(bool carHook, bool vibrationCarHookEnabled); }
+
 class DirectInputFFBHook : public Hook
 {
 	const static int GamePlCar_Ctrl_Addr = 0xA8330;
@@ -896,8 +898,11 @@ class DirectInputFFBHook : public Hook
 	inline static SafetyHookInline GamePlCar_Ctrl = {};
 	static void __cdecl GamePlCar_Ctrl_Hook(EVWORK_CAR* car)
 	{
+		// Read-only discovery sides of the car tick; inert unless an external request armed a window.
+		TickDiscovery::Observe(car, false);
 		FFB::Update(car);
 		GamePlCar_Ctrl.call(car);
+		TickDiscovery::Observe(car, true);
 	}
 
 public:
@@ -926,6 +931,7 @@ public:
 			return false;
 		}
 
+		TickDiscovery::NoteHooks(true, Settings::VibrationMode != 0 || Settings::UseNewInput);
 		spdlog::info("DirectInputFFB: Hook installed (FFB init deferred to first game tick)");
 		return true;
 	}

@@ -1,6 +1,7 @@
 // Actual production calculation with observe-only sinks. No native DLL/API calls.
 #define OUTRUN_OFFLINE_SIGNALS
 #include "../../src/hooks_dinputffb.cpp"
+namespace TickDiscovery { void Observe(EVWORK_CAR*, bool) {} void NoteHooks(bool, bool) {} } // inert without an armed window
 #include <fstream>
 #include <sstream>
 #include <iostream>

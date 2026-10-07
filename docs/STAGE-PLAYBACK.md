@@ -110,6 +110,8 @@ would not prove unattended launch. See `docs/NATIVE-INPUT-DIAGNOSIS-2026-09-19.m
    mode/track/car identity and named numeric pose/camera fields. Reject online,
    ambiguous player, changed car/stage, reordered ticks and incomplete output.
    Keep discovery distinct from a replayable trajectory.
+   *Source and fixtures exist (2026-10-07, [TICK-DISCOVERY.md](TICK-DISCOVERY.md)). Not installed or live-tested;
+   awaiting review.*
 2. Refactor the existing calculation seam so muted capture retains normal
    configured model requests without creating a device. Preserve original
    state/config/profile identity and label unavailable channels. Exercise all

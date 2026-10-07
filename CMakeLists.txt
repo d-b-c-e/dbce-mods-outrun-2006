@@ -329,6 +329,8 @@ set(outrun2006tweaks_SOURCES
 	"src/resource.h"
 	"src/signal_recording_codec.hpp"
 	"src/telemetry.hpp"
+	"src/tick_discovery.cpp"
+	"src/tick_discovery.hpp"
 	"src/wheel_input_gate.cpp"
 	"src/wheel_input_gate.hpp"
 	"src/wheel_settings_policy.hpp"

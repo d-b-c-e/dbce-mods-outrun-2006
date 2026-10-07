@@ -1,5 +1,10 @@
 # Read-only tick discovery review — 2026-10-07
 
+**Current result:** all four findings below are closed in **069fe41**, with
+independent source/device-free checks passing. Packaging is clear from this
+review; no live discovery, output-mute or gameplay replay qualification is added.
+See the correction section below. The original findings/evidence remain historical.
+
 Reviewed **a181519f073d7759e0809029f778a93eb06d07f9** on master. The step-1
 design fits [STAGE-PLAYBACK](STAGE-PLAYBACK.md): observe named values on both
 sides of the local-car simulation hook, with no gameplay writer. **Hold install
@@ -56,3 +61,48 @@ The standards audit found missing STD-021..025; adoption now records them
 explicitly. Pending: STD-012,021,022,025. Unchecked: STD-001,003..009,015..019,023,024.
 Partial: STD-013,020. No functionality is adopted merely by adding a row.
 Cross-review was delivered through the portfolio inbox at hub **6e8657b**.
+
+## Correction review — 069fe41
+
+Reviewed **069fe415eef21990a7f7bdf6f34b4cafc82ce75a**. All four findings are
+resolved without a new pose writer or force behavior:
+
+- Mandatory force/input cleanup and lifecycle completion now precede discovery
+  saving; the host boundary also contains discovery exceptions. Actual update,
+  observation and exit entry points contain allocation/logging faults.
+- Data must commit before the requested outcome. A single non-overwriting retry
+  uses `discovery.retry.tsv`; the outcome names it in `dataFile`. Both blocked
+  targets produce failed/dataFile=none. Outcome failure leaves committed data
+  and a log diagnostic. Serialization failure attempts a fixed-buffer failed
+  marker; if storage also fails, missing completion means incomplete evidence.
+- A pending pre at duration end fails. Explicit Stop/exit still preserve and
+  label partial evidence; neither means a completed observation window.
+- Same-model object replacement retains its first changing row with
+  `car_instance=1` and ends; unchanged-instance rows remain epoch 0.
+
+Independent validation: **100 original discovery checks**, production consumer
+and host lifecycle suites, and quiet-detach checks pass. An additional **33 x86
+source-linked checks** pass on frozen source. They exercise foreign data/outcome
+targets, full retry data, pending final pre, serialized instance transition,
+throwing producer/log boundaries and actual host finalization under allocation
+failure, with cleanup exactly once and a stopped gate. The full production
+TickDiscovery namespace and host finalizer are verbatim extractions; only game
+field holders/log/device cleanup boundaries are fake. Native layouts and tick
+phase remain unqualified. No new game/native DLL/device or rig operation.
+
+Private evidence:
+`%LOCALAPPDATA%/Dbce/StagePlayback/SessionEvidence/outrun-tick-fixes-069fe41-20261007`.
+`Build-Review.ps1` repeats the independent fixture on a copy. Source hashes and
+extraction equalities are checked; the 51-file SHA256SUMS seal is
+`C10F4CDDD0376EDE0717BBED11DB72360397D922F8E3CB430071CCAB75071ABF`.
+The copied lifecycle runner changes source/output-root assignments only and
+reads the exact game EXE for hashing, without running it. Original a181519
+negative control stays untouched. Installed f021736 proxy hash remains
+`E18455496EFB59EB33A9F592889F9B12991C1519EB8A8E6D37268AF132D1AE78`.
+
+Before interpreting a live discovery, use the recorded `dataFile` and require
+its successful outcome; filenames alone cannot establish completion. Keep the
+coordinated output-disabled discovery and producer-preserving step-2 capture
+distinct. The documentation's prior claims that every failure retains rows and
+that discovery finalizes before force/input are corrected in TICK-DISCOVERY.
+Runtime corrections remain Claude's; review sent through hub **24d2445**.

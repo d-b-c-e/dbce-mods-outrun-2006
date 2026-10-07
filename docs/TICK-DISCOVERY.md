@@ -1,10 +1,10 @@
 # Read-only local-car tick discovery
 
-STAGE-PLAYBACK step 1. Claude, 2026-10-07. Source and fixtures only: not installed or live-tested yet, and the
-design fits the agreed scope. Independent review of a181519 passes the original
-76 checks but reproduces four defects; **hold install** pending corrections.
-See [the review and repeatable evidence](2026-10-07-tick-discovery-review.md).
-The implementation description below is the reviewed candidate, not qualification.
+STAGE-PLAYBACK step 1. Claude, 2026-10-07. Source and fixtures only: not installed
+or live-tested. Independent review closes all four original findings in 069fe41:
+100 discovery checks, production lifecycle suites and 33 additional fault checks
+pass. Packaging is clear from source review; live tick/output-mute qualification
+is still separate. See [the review and evidence](2026-10-07-tick-discovery-review.md).
 
 ## What it records
 
@@ -47,7 +47,12 @@ Arm with `tools/Arm-TickDiscovery.ps1 -Seconds 10..120`.
 
 ## When a window stops
 
-Rows are kept in every case. `outcome.txt` is written last, with counts and `replayable=false`.
+Rows are retained on ordinary stops and observation failures when serialization
+and storage succeed. `outcome.txt` is written last, with counts and
+`replayable=false`; read its `dataFile` because a retry may use
+`discovery.retry.tsv`. A missing/failed outcome is incomplete evidence. Memory or
+storage failure can prevent row recovery; a best-effort failed marker does not
+mean the rows were saved.
 
 | Outcome | When |
 |---|---|
@@ -57,8 +62,10 @@ Rows are kept in every case. `outcome.txt` is written last, with counts and `rep
 | `stopped` | `<id>/stop.txt` (`Arm-TickDiscovery.ps1 -StopId <id>`) |
 | `exit` | normal exit at the outer-loop boundary before the window ended (an open pre says `unmatchedPre=true`) |
 
-**Write cost:** both files are written once, from the game thread, temp file then rename. A 120 s window produces
-about 10 MB of text. Expect one short hitch when the window closes; there is no background worker.
+**Write cost:** files are written when the window closes, from the game thread,
+temp file then rename, with one alternate-name data retry. A 120 s window produces
+about 10 MB of text. This can hitch; duration is not runtime-qualified. There is
+no background worker.
 
 ## Tests
 
@@ -70,8 +77,9 @@ about 10 MB of text. Expect one short hitch when the window closes; there is no 
 - the exact files written, no re-arm, stop, network, exit
 - finalize-once
 
-The production FFB, settings and lifecycle fixtures link inert stubs. The host fixture asserts that discovery
-finalizes before FFB and input, and before the game's cleanup.
+The production FFB, settings and lifecycle fixtures link inert stubs. The host
+fixture asserts discovery finalizes after FFB/input and gate completion, before
+the game's cleanup, and injects a discovery exception without interrupting exit.
 
 ## Not claimed
 

@@ -110,11 +110,11 @@ would not prove unattended launch. See `docs/NATIVE-INPUT-DIAGNOSIS-2026-09-19.m
    mode/track/car identity and named numeric pose/camera fields. Reject online,
    ambiguous player, changed car/stage, reordered ticks and incomplete output.
    Keep discovery distinct from a replayable trajectory.
-   *Source a181519 and fixtures exist (2026-10-07,
-   [TICK-DISCOVERY.md](TICK-DISCOVERY.md)). Original 76 checks pass; independent
-   review reproduces four defects in cleanup, completion and instance identity.
-   Hold installation until [these corrections](2026-10-07-tick-discovery-review.md)
-   pass re-review. No live test yet.*
+   *Source/fixtures exist (2026-10-07, [TICK-DISCOVERY.md](TICK-DISCOVERY.md)).
+   All four original findings are closed in 069fe41: 100 discovery checks,
+   production lifecycle suites and 33 independent source-linked fault checks
+   pass [re-review](2026-10-07-tick-discovery-review.md). Packaging is clear from
+   source review; no live discovery or output-mute qualification yet.*
 2. Refactor the existing calculation seam so muted capture retains normal
    configured model requests without creating a device. Preserve original
    state/config/profile identity and label unavailable channels. Exercise all

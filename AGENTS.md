@@ -1,13 +1,14 @@
 # OutRun2006Tweaks-FFB working notes
 
-**October 7 read-only discovery review:** a181519 is source/fixtures only; hold
-installation pending four reproduced fixes. Original x86 suite passes 76;
-independent 15-assertion fixture reproduces serialization escaping host cleanup,
-failed row writes marked observed, unchecked final pre at duration end, and
-undetected same-model local-object replacement. Read
-`docs/2026-10-07-tick-discovery-review.md`. Claude owns runtime corrections;
-installed f021736 remains unchanged. Output mute and gameplay replay are separate
-unfinished steps; these discovery tests do not qualify physical output.
+**October 7 read-only discovery review:** 069fe41 closes all four a181519
+findings. The 100-check discovery suite, production lifecycle suites and 33
+independent source-linked fault checks pass. Cleanup precedes fallible saving;
+data completion is checked, final unmatched pre fails, and same-model replacement
+is serialized. Packaging is clear from source review; no live discovery or
+physical-output qualification yet. Read `docs/2026-10-07-tick-discovery-review.md`.
+Installed f021736 proxy still matches. Claude owns runtime follow-up; output mute
+and gameplay replay remain separate unfinished steps. Read the outcome's dataFile
+to handle the non-overwriting retry; missing/failed completion is not success.
 
 **October 6 installed input candidate:** `f021736` is installed, DLL
 `E18455496EFB59EB33A9F592889F9B12991C1519EB8A8E6D37268AF132D1AE78`.

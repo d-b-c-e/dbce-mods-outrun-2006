@@ -107,3 +107,39 @@ the game's cleanup, and injects a discovery exception without interrupting exit.
   files, the window-end and stop boundaries, and same-model car replacement against a same-instance control. The
   host-lifecycle fixture's discovery stub throws `bad_alloc` after cleanup and the gate, proving the exit path stays
   intact. Astra's frozen negative control in her review evidence is left as is.
+
+## First live window — 2026-10-07, 12:32-12:36 CT (Claude)
+
+Reviewed package `build/packages/outrun-069fe41-tick-discovery` (clean 069fe41, review-only, 45 files, `dinput8.dll`
+73432838...) was installed to the Stream Deck copy with its own installer and backup, so the f021736 proxy E1845549
+was replaced.
+
+**One slot.**
+- **Gates:** Rig-Lease and idle ≥ 310 s. The 8 owner files were backed up on disk at run start.
+- **Temporary overrides:** pinned virtual pad, FFB/telemetry/rumble off, driving axes -1.
+- **Launch:** a plain EXE launch; the game came to the front on its own at t+20.
+- **Route, each step checked from a fresh game-window frame:** Start (title), A Single Player, Right to OutRun, A,
+  A (course OutRun2), A (Dino 246 GTS, Novice), A (Automatic). At music select I armed
+  `Arm-TickDiscovery.ps1 -Seconds 60` with the lease token, then pressed A (Splash Wave). Countdown and start line
+  followed, with no driving input.
+
+**Outcome** `4025516d4d684460805ff899b2de52e4`: `observed`, duration ended.
+- **Timing:** armed 12:34:47.764 and observed 12:35:47.890 in the game log.
+- **Counts:** 5,878 rows, 2,939 pairs, 3,600 updates, 2,817 game updates, `gameUpdatesWithoutPair=0`,
+  `maxPairsPerUpdate=1`, `unmatchedPre=false`, `dataFile=discovery.tsv`, `directInputFfbCarHook:1`.
+- **Close:** normal exit code 0, owner files restored exactly, lease released. The reviewed proxy stays installed.
+
+**What the window shows (stationary kart at the Palm Beach start line):**
+- **One car tick per real update.** Every in-game update had exactly one pre/post pair (121 pairs in mode 13,
+  2,818 in mode 16). `sprani_num_ticks` was 1 except for 12 catch-up updates (8 and 2).
+- **`GamePlCar_Ctrl` is the pose authority.** `position_14` and `matrix_70` changed inside the call in 2,700 of
+  2,939 pairs and never between ticks (post of update n equals pre of update n+1). The post side holds the solved
+  pose; nothing else wrote the pose between ticks in this window.
+- **Values are small.** `field_1c4` stayed at or below 0.00016, and position was near 0 (x 0 to 7.6e-5) for a
+  kart at rest. Units and frames still need a moving window.
+- The median call took 114 µs (max 737 µs).
+
+**Limits:** stationary, one stage, one car, no driving input. The matrices' roles, units and the moving-car
+behaviour are not established, and nothing here qualifies a writer or replay. Evidence (local, private):
+`E:\Source\_archive\2026-10-07\outrun-discovery-20261007-123210` (11 frames, game log, owner-before copies, and
+`discovery-4025516d` with the request, arming provenance, data and outcome).

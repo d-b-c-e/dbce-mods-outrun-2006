@@ -1,7 +1,10 @@
 # Read-only local-car tick discovery
 
 STAGE-PLAYBACK step 1. Claude, 2026-10-07. Source and fixtures only: not installed or live-tested yet, and the
-design is awaiting Astra's review.
+design fits the agreed scope. Independent review of a181519 passes the original
+76 checks but reproduces four defects; **hold install** pending corrections.
+See [the review and repeatable evidence](2026-10-07-tick-discovery-review.md).
+The implementation description below is the reviewed candidate, not qualification.
 
 ## What it records
 

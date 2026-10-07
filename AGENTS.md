@@ -1,5 +1,14 @@
 # OutRun2006Tweaks-FFB working notes
 
+**October 7 read-only discovery review:** a181519 is source/fixtures only; hold
+installation pending four reproduced fixes. Original x86 suite passes 76;
+independent 15-assertion fixture reproduces serialization escaping host cleanup,
+failed row writes marked observed, unchecked final pre at duration end, and
+undetected same-model local-object replacement. Read
+`docs/2026-10-07-tick-discovery-review.md`. Claude owns runtime corrections;
+installed f021736 remains unchanged. Output mute and gameplay replay are separate
+unfinished steps; these discovery tests do not qualify physical output.
+
 **October 6 installed input candidate:** `f021736` is installed, DLL
 `E18455496EFB59EB33A9F592889F9B12991C1519EB8A8E6D37268AF132D1AE78`.
 Its per-game-update snapshots and explicit temporary pad mappings passed the

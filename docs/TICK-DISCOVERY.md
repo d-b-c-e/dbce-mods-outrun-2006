@@ -18,6 +18,7 @@ It adds no new inline hook. The `Vibration` hook on the same address is reported
 Each row holds named values:
 - **Our counters and timing:**
   - phase
+  - `car_instance`: 0 for the first local car object, 1 for a replacement row
   - our update index (one per real `ReplaceGameUpdateLoop` update, never per render)
   - microseconds since arming
 - **Game state:**
@@ -50,18 +51,18 @@ Rows are kept in every case. `outcome.txt` is written last, with counts and `rep
 
 | Outcome | When |
 |---|---|
-| `observed` | `seconds × 60` updates passed |
-| `ended` | car identity or `stg_stage_num` changed (the changing row is kept) |
+| `observed` | `seconds × 60` updates passed, the last pair closed, and the data file committed |
+| `ended` | a different local car object (same model included), car identity or `stg_stage_num` changed (the changing row is kept) |
 | `failed` | online/LAN driver or lobby (relocation-aware vtable check), a car that is not event 8, two pre, post without pre or on another car, pre unmatched across updates, a skipped update, non-finite value, capacity |
 | `stopped` | `<id>/stop.txt` (`Arm-TickDiscovery.ps1 -StopId <id>`) |
-| `exit` | normal exit at the outer-loop boundary before the window ended (finalized before FFB/input) |
+| `exit` | normal exit at the outer-loop boundary before the window ended (an open pre says `unmatchedPre=true`) |
 
 **Write cost:** both files are written once, from the game thread, temp file then rename. A 120 s window produces
 about 10 MB of text. Expect one short hitch when the window closes; there is no background worker.
 
 ## Tests
 
-`tools/tests/Test-TickDiscovery.ps1` builds the production header for x86 (`/W4 /WX`) and runs 76 checks:
+`tools/tests/Test-TickDiscovery.ps1` builds the production header for x86 (`/W4 /WX`) and runs 100 checks:
 - request parsing and every refusal
 - pair ordering and per-update accounting, including the arming update's own car tick
 - capacity
@@ -76,6 +77,25 @@ finalizes before FFB and input, and before the game's cleanup.
 
 - No replay, writer or ownership.
 - The force mute (step 2) is not done.
-- No live run yet. The x86 Release DLL builds in `build/mixed-switch-candidate` (`dinput8.dll` `25705CCA8DE3...`); it is neither packaged nor installed.
+- No live run yet. The x86 Release DLL builds in `build/mixed-switch-candidate` (`dinput8.dll` `73432838D92B...`); it is neither packaged nor installed.
 - Whether `GamePlCar_Ctrl` runs once per update, which side holds the solved pose, and what the matrices mean are
   exactly what a first offline window should show.
+
+## Closing safely (after Astra's review, 2026-10-07)
+
+- **Exit order:** at exit, discovery runs **after** FFB, DInputRemap and InputManager finalization and after the
+  lifecycle gate completes, inside `catch (...)`. A failing save can no longer skip mandatory cleanup or strand the
+  gate.
+- **Containment:** every entry point the game calls (update, car tick, exit) contains exceptions. A fault stops
+  discovery for the session.
+- **Commit rule:** the requested outcome is published only after the data file commits. A blocked `discovery.tsv`
+  is retried once as `discovery.retry.tsv`, never over an existing file; otherwise the outcome is `failed`
+  ("data file could not be written ..."). `outcome.txt` names the file in `dataFile=`.
+- **Memory:** the paths a close needs are reserved at arming. A close that runs out of memory writes a fixed-buffer
+  `failed` outcome without allocating.
+- **Window end:** a pre still waiting for its post fails the window ("pre without post at the window end"). Stop and
+  exit keep their own outcome and report `unmatchedPre=true`.
+- **Tests:** 100 checks, including injected allocation failure while closing, blocked data, retry and outcome
+  files, the window-end and stop boundaries, and same-model car replacement against a same-instance control. The
+  host-lifecycle fixture's discovery stub throws `bad_alloc` after cleanup and the gate, proving the exit path stays
+  intact. Astra's frozen negative control in her review evidence is left as is.

@@ -81,7 +81,8 @@ struct Observation {
     std::array<float, 3> position{}, velocity{};
     std::array<float, 16> m70{}, mB0{}, mF0{};
 };
-struct Row { Phase phase; std::uint32_t update; Observation o; };
+// `instance` counts local car objects seen in this window (0 = the first); the window ends at the first change.
+struct Row { Phase phase; std::uint32_t update; std::uint32_t instance; Observation o; };
 
 inline bool Finite(const Observation& o) {
     if (!std::isfinite(o.speed)) return false;
@@ -137,9 +138,12 @@ public:
             pending = false; ++pairs; ++totalPairs;
         }
         if (rows.size() == capacity) return Fail("capacity");
-        rows.push_back({ phase, update, o });
+        // A different local car object (even the same model and settings) is a replacement: keep its row, then end.
+        const bool replaced = !rows.empty() && o.car != rows.front().o.car;
+        rows.push_back({ phase, update, replaced ? 1u : 0u, o });
         const Observation& a = rows.front().o;
-        if (o.carId != a.carId || o.carKind != a.carKind || o.carColour != a.carColour || o.manual != a.manual)
+        if (replaced) ended = "car instance changed";
+        else if (o.carId != a.carId || o.carKind != a.carKind || o.carColour != a.carColour || o.manual != a.manual)
             ended = "car changed";
         else if (o.stage != a.stage) ended = "stage changed";
     }
@@ -163,7 +167,7 @@ inline void Append(std::string& out, const char* format, double v) {
     char b[48]; std::snprintf(b, sizeof(b), format, v); out += b;
 }
 inline std::string Tsv(const Session& s) {
-    std::string out = "phase\tupdate\tmicros\tticks\tapp_time\tpower_on_timer\tcurrent_mode\tgame_mode\tstage\tcar_id\t"
+    std::string out = "phase\tupdate\tcar_instance\tmicros\tticks\tapp_time\tpower_on_timer\tcurrent_mode\tgame_mode\tstage\tcar_id\t"
         "car_kind\tcar_colour\tmanual_transmission\tflags_4\tcur_gear_208\tpedal_amount_34\tfield_1c4\t"
         "position_x\tposition_y\tposition_z\tspd_mb_x\tspd_mb_y\tspd_mb_z";
     for (const char* m : { "matrix_70", "matrix_b0", "matrix_f0" })
@@ -173,7 +177,7 @@ inline std::string Tsv(const Session& s) {
     for (const Row& row : s.rows) {
         const Observation& o = row.o;
         out += row.phase == Phase::Pre ? "pre" : "post";
-        for (double v : { double(row.update), double(o.micros), double(o.ticks), double(o.appTime), double(o.powerOn),
+        for (double v : { double(row.update), double(row.instance), double(o.micros), double(o.ticks), double(o.appTime), double(o.powerOn),
                           double(o.currentMode), double(o.gameMode), double(o.stage), double(o.carId), double(o.carKind),
                           double(o.carColour), double(o.manual), double(o.flags), double(o.gear), double(o.pedal) })
             Append(out, "\t%.17g", v);
@@ -185,7 +189,8 @@ inline std::string Tsv(const Session& s) {
     }
     return out;
 }
-inline std::string OutcomeText(const Session& s, std::string_view outcome, std::string_view detail, std::string_view hooks) {
+inline std::string OutcomeText(const Session& s, std::string_view outcome, std::string_view detail, std::string_view hooks,
+    std::string_view dataFile) {
     std::string out;
     auto line = [&](std::string_view k, std::string_view v) { out.append(k); out += '='; out.append(v); out += '\n'; };
     auto number = [&](std::string_view k, unsigned long long v) { line(k, std::to_string(v)); };
@@ -193,27 +198,31 @@ inline std::string OutcomeText(const Session& s, std::string_view outcome, std::
     number("seconds", unsigned(s.request.seconds)); number("rows", s.rows.size()); number("pairs", s.totalPairs);
     number("updates", s.updates); number("gameUpdates", s.gameUpdates);
     number("gameUpdatesWithoutPair", s.gameUpdatesWithoutPair); number("maxPairsPerUpdate", s.maxPairs);
-    line("unmatchedPre", s.UnmatchedPre() ? "true" : "false"); line("hooks", hooks);
+    line("unmatchedPre", s.UnmatchedPre() ? "true" : "false"); line("dataFile", dataFile); line("hooks", hooks);
     line("evidence", "discovery"); line("replayable", "false"); line("writer", "none");
     line("output", "unchanged (no force, input, telemetry or display change)");
     return out;
 }
 
-inline bool WriteNew(const std::wstring& path, const std::string& bytes) {
-    const std::wstring temp = path + L".tmp";
-    HANDLE f = CreateFileW(temp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+// Allocation-free core: a new temp file, then a rename that never replaces an existing file.
+inline bool WriteNewRaw(const wchar_t* path, const wchar_t* temp, const char* data, std::size_t size) {
+    HANDLE f = CreateFileW(temp, GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (f == INVALID_HANDLE_VALUE) return false;
     bool ok = true;
-    for (std::size_t done = 0; ok && done < bytes.size();) {
-        DWORD wrote = 0, chunk = DWORD((bytes.size() - done) > (1u << 20) ? (1u << 20) : (bytes.size() - done));
-        ok = WriteFile(f, bytes.data() + done, chunk, &wrote, nullptr) && wrote == chunk;
+    for (std::size_t done = 0; ok && done < size;) {
+        DWORD wrote = 0, chunk = DWORD((size - done) > (1u << 20) ? (1u << 20) : (size - done));
+        ok = WriteFile(f, data + done, chunk, &wrote, nullptr) && wrote == chunk;
         done += wrote;
     }
     ok = FlushFileBuffers(f) && ok;
     CloseHandle(f);
-    if (ok) ok = MoveFileExW(temp.c_str(), path.c_str(), MOVEFILE_WRITE_THROUGH) != FALSE; // never replaces
-    if (!ok) DeleteFileW(temp.c_str());
+    if (ok) ok = MoveFileExW(temp, path, MOVEFILE_WRITE_THROUGH) != FALSE;
+    if (!ok) DeleteFileW(temp);
     return ok;
+}
+inline bool WriteNew(const std::wstring& path, const std::string& bytes) {
+    const std::wstring temp = path + L".tmp";
+    return WriteNewRaw(path.c_str(), temp.c_str(), bytes.data(), bytes.size());
 }
 inline bool ReadSmall(const std::wstring& path, std::string& out) {
     HANDLE f = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -250,6 +259,8 @@ public:
             const bool stop = !due && update % UpdatesPerSecond == 0 && IsFile(dir + L"\\stop.txt");
             if (network) session->Fail("network driver or lobby active");
             if (!due && !stop && !session->Stopped()) session->Update(update, inGame);
+            // A complete window ends on a closed pair; a pre still waiting for its post is not an observed window.
+            if (due) { session->Close(); if (session->UnmatchedPre()) session->Fail("pre without post at the window end"); }
             if (!session->failure.empty()) return Write("failed", session->failure);
             if (!session->ended.empty()) return Write("ended", session->ended);
             if (due) return Write("observed", "duration ended");
@@ -296,15 +307,40 @@ private:
             WriteNew(next + L"\\outcome.txt", std::string("schema=") + Schema + "\nid=" + r.id + "\noutcome=failed\ndetail=memory\n");
             return "TickDiscovery: could not reserve memory";
         }
+        // Every path the close will need is reserved now, so a close under memory pressure needs no allocation for them.
+        paths = Paths{ next + L"\\discovery.tsv", next + L"\\discovery.tsv.tmp", next + L"\\discovery.retry.tsv",
+                       next + L"\\discovery.retry.tsv.tmp", next + L"\\outcome.txt", next + L"\\outcome.txt.tmp" };
         session = std::move(s); dir = next;
         return "TickDiscovery: armed " + r.id + " for " + std::to_string(r.seconds) + " s";
     }
-    std::string Write(std::string_view outcome, std::string_view detail) {
-        session->Close();
-        const bool rows = WriteNew(dir + L"\\discovery.tsv", Tsv(*session));
-        const bool done = WriteNew(dir + L"\\outcome.txt", OutcomeText(*session, outcome, detail, hooks)); // written last
-        std::string log = "TickDiscovery: " + session->request.id + " " + std::string(outcome) + " (" + std::string(detail) +
-            "), " + std::to_string(session->rows.size()) + " rows" + (rows && done ? "" : "; WRITE FAILED");
+    struct Paths { std::wstring data, dataTemp, retry, retryTemp, outcome, outcomeTemp; };
+    Paths paths;
+
+    // Closes the window. Never throws: the evidence is best effort and must not stand between the game and its exit.
+    // The requested outcome is published only after the data file is committed (one retry under a new name, never
+    // over an existing file); otherwise the outcome is "failed" and says why. If even serialization fails (memory),
+    // a fixed-buffer outcome records that without allocating.
+    std::string Write(const char* outcome, std::string_view detail) {
+        std::string log;
+        try {
+            session->Close();
+            const std::string data = Tsv(*session);
+            bool retried = false;
+            bool rows = WriteNewRaw(paths.data.c_str(), paths.dataTemp.c_str(), data.data(), data.size());
+            if (!rows) { retried = true; rows = WriteNewRaw(paths.retry.c_str(), paths.retryTemp.c_str(), data.data(), data.size()); }
+            const std::string why = rows ? std::string(detail) : "data file could not be written (window " + std::string(outcome) + ": " + std::string(detail) + ")";
+            const std::string text = OutcomeText(*session, rows ? outcome : "failed", why, hooks,
+                rows ? (retried ? "discovery.retry.tsv" : "discovery.tsv") : "none");
+            const bool done = WriteNewRaw(paths.outcome.c_str(), paths.outcomeTemp.c_str(), text.data(), text.size()); // last
+            log = "TickDiscovery: " + session->request.id + " " + std::string(rows ? outcome : "failed") + " (" + why + "), " +
+                std::to_string(session->rows.size()) + " rows" + (retried && rows ? "; data under discovery.retry.tsv" : "") +
+                (done ? "" : "; OUTCOME WRITE FAILED");
+        } catch (...) {
+            char text[256];
+            const int n = std::snprintf(text, sizeof(text), "schema=%s\nid=%s\noutcome=failed\ndetail=the window could not be serialized (memory)\n"
+                "evidence=discovery\nreplayable=false\nwriter=none\n", Schema, session->request.id.c_str());
+            if (n > 0) WriteNewRaw(paths.outcome.c_str(), paths.outcomeTemp.c_str(), text, std::size_t(n) < sizeof(text) ? std::size_t(n) : sizeof(text) - 1);
+        }
         session.reset(); dir.clear();
         return log;
     }

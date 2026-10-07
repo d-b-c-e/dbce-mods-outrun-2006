@@ -1,5 +1,12 @@
 // Production tick_discovery.hpp against a temporary root: request parsing, window ordering/bounds and the exact
 // files written. No game, no hook, no device. Usage: tick-discovery.exe <empty temp folder>
+#include <cstdlib>
+#include <new>
+// One-shot allocation fault injection for the close-under-memory-pressure case.
+static bool failNextAllocation = false;
+void* operator new(std::size_t n) { if (failNextAllocation) { failNextAllocation = false; throw std::bad_alloc(); } if (void* p = std::malloc(n ? n : 1)) return p; throw std::bad_alloc(); }
+void operator delete(void* p) noexcept { std::free(p); }
+void operator delete(void* p, std::size_t) noexcept { std::free(p); }
 #include "../../src/tick_discovery.hpp"
 #include <cstdio>
 #include <fstream>
@@ -80,7 +87,14 @@ static void Ordering() {
       while (s.rows.size() < s.capacity) { s.Update(++u, true); s.Observe(Phase::Pre, u, Car()); s.Observe(Phase::Post, u, Car()); }
       Require(s.failure.empty() && s.capacity == 10u * UpdatesPerSecond * 2 + Headroom, "capacity reached without failure");
       s.Update(++u, true); s.Observe(Phase::Pre, u, Car()); Require(s.failure == "capacity" && s.rows.size() == s.capacity, "capacity never wraps"); }
-    { Session s = Started(); for (std::uint32_t u = 1; u < 600; ++u) s.Update(u, false);
+    // Same-model replacement of the local car object (finding 4): the changing row is kept, then the window ends.
+    { Session s = Started(); s.Observe(Phase::Pre, 0, Car(0x1000)); s.Observe(Phase::Post, 0, Car(0x1000));
+      s.Update(1, true); s.Observe(Phase::Pre, 1, Car(0x2000));
+      Require(s.ended == "car instance changed" && s.failure.empty() && s.rows.size() == 3 && s.rows.back().instance == 1 && s.rows.front().instance == 0,
+              "same-model car replacement ends with its row and instance epoch");
+      const auto text = Tsv(s); Require(text.find("\npre\t1\t1\t") != std::string::npos, "car instance serialized"); }
+    { Session s = Started(); for (std::uint32_t u = 0; u < 5; ++u) { if (u) s.Update(u, true); s.Observe(Phase::Pre, u, Car(0x1000)); s.Observe(Phase::Post, u, Car(0x1000)); }
+      Require(!s.Stopped() && s.rows.size() == 10, "same car instance across updates continues"); }    { Session s = Started(); for (std::uint32_t u = 1; u < 600; ++u) s.Update(u, false);
       Require(!s.Due(599) && s.Due(600) && s.failure.empty(), "window is updates 0..599 for 10 s"); }
 }
 
@@ -109,7 +123,7 @@ static void Files(const std::wstring& base) {
             outcome.find("replayable=false\n") != std::string::npos && outcome.find("chainOrder:unobserved") != std::string::npos, "observed outcome");
     Require(Count(tsv, '\n') == 7, "header plus six rows");
     const std::string header = tsv.substr(0, tsv.find('\n')), first = tsv.substr(header.size() + 1, tsv.find('\n', header.size() + 1) - header.size() - 1);
-    Require(Count(header, '\t') == 70 && Count(first, '\t') == 70, "71 named columns in every row");
+    Require(Count(header, '\t') == 71 && Count(first, '\t') == 71 && header.rfind("phase\tupdate\tcar_instance\t", 0) == 0, "72 named columns in every row, car instance included");
     Require(first.rfind("pre\t", 0) == 0 && first.find("\t1.5\t2.25\t-3\t") != std::string::npos, "values round-trip as written");
     Require(!Exists(dirA + L"\\discovery.tsv.tmp") && !Exists(dirA + L"\\outcome.txt.tmp"), "no temporary files left");
 
@@ -152,6 +166,48 @@ static void Files(const std::wstring& base) {
     for (int i = 0; i < 120; ++i) c.OnUpdate(false, false, Now, Sha, "");
     Require(!c.session && Exists(root + L"\\request.txt"), "nothing arms after finalization");
 
+    // Closing under failure (Astra's 2026-10-07 review findings 1-3, inverted to required outcomes).
+    auto armAt = [&](Controller& k, const std::wstring& r, char id) {
+        Require(CreateDirectoryW(r.c_str(), nullptr) != FALSE, "isolated root"); k.root = r;
+        Write(r + L"\\request.txt", Text(std::string(32, id)));
+        for (int i = 0; i < 60; ++i) k.OnUpdate(true, false, Now, Sha, "");
+        Require(k.session != nullptr, "armed");
+    };
+    auto fill = [&](Controller& k, bool lastPreOnly) {
+        for (int i = 0; i < 600; ++i) { if (i) k.OnUpdate(true, false, Now, Sha, ""); k.Observe(Phase::Pre, Car()); if (!lastPreOnly || i != 599) k.Observe(Phase::Post, Car()); }
+    };
+    { Controller k; armAt(k, base + L"\\memory", 'a'); k.Observe(Phase::Pre, Car()); k.Observe(Phase::Post, Car()); const auto d = k.dir;
+      bool threw = false; failNextAllocation = true;
+      try { k.Finalize(); } catch (...) { threw = true; }
+      failNextAllocation = false;
+      const auto o = Read(d + L"\\outcome.txt");
+      Require(!threw && !k.session && k.finalized && o.find("outcome=failed\n") != std::string::npos && o.find("could not be serialized (memory)") != std::string::npos,
+              "an allocation failure while closing is contained and recorded without allocating"); }
+    { Controller k; armAt(k, base + L"\\retry", 'b'); const auto d = k.dir;
+      Require(CreateDirectoryW((d + L"\\discovery.tsv").c_str(), nullptr) != FALSE, "block the data file");
+      fill(k, false); const auto log = k.OnUpdate(true, false, Now, Sha, ""); const auto o = Read(d + L"\\outcome.txt");
+      Require(o.find("outcome=observed\n") != std::string::npos && o.find("dataFile=discovery.retry.tsv\n") != std::string::npos &&
+              IsFile(d + L"\\discovery.retry.tsv") && log.find("discovery.retry.tsv") != std::string::npos, "a blocked data file is retried once under a new name"); }
+    { Controller k; armAt(k, base + L"\\nodata", 'c'); const auto d = k.dir;
+      CreateDirectoryW((d + L"\\discovery.tsv").c_str(), nullptr); CreateDirectoryW((d + L"\\discovery.retry.tsv").c_str(), nullptr);
+      fill(k, false); k.OnUpdate(true, false, Now, Sha, ""); const auto o = Read(d + L"\\outcome.txt");
+      Require(o.find("outcome=failed\n") != std::string::npos && o.find("data file could not be written (window observed: duration ended)") != std::string::npos &&
+              o.find("dataFile=none\n") != std::string::npos && !k.session, "no committed data: failed, never observed"); }
+    { Controller k; armAt(k, base + L"\\nooutcome", 'd'); const auto d = k.dir;
+      CreateDirectoryW((d + L"\\outcome.txt").c_str(), nullptr);
+      fill(k, false); const auto log = k.OnUpdate(true, false, Now, Sha, "");
+      Require(IsFile(d + L"\\discovery.tsv") && log.find("OUTCOME WRITE FAILED") != std::string::npos && !k.session, "an outcome write failure is reported, the data kept"); }
+    { Controller k; armAt(k, base + L"\\unmatched", 'e'); const auto d = k.dir; fill(k, true); k.OnUpdate(true, false, Now, Sha, "");
+      const auto o = Read(d + L"\\outcome.txt");
+      Require(o.find("outcome=failed\n") != std::string::npos && o.find("pre without post at the window end") != std::string::npos, "an unmatched final pre fails the window"); }
+    { Controller k; armAt(k, base + L"\\stoppending", 'f'); const auto d = k.dir;   // armed at update 60
+      k.Observe(Phase::Pre, Car()); k.Observe(Phase::Post, Car());
+      for (int u = 61; u < 119; ++u) { k.OnUpdate(true, false, Now, Sha, ""); k.Observe(Phase::Pre, Car()); k.Observe(Phase::Post, Car()); }
+      k.OnUpdate(true, false, Now, Sha, ""); k.Observe(Phase::Pre, Car());          // update 119: a pre, then the stop check at 120
+      Write(d + L"\\stop.txt", "stop\n"); k.OnUpdate(true, false, Now, Sha, "");
+      const auto o = Read(d + L"\\outcome.txt");
+      Require(!k.session && o.find("outcome=stopped\n") != std::string::npos && o.find("unmatchedPre=true\n") != std::string::npos,
+              "a stop with an open pre stays stopped and says the pre is unmatched"); }
     Controller leaving; leaving.root = root; DeleteFileW((root + L"\\request.txt").c_str());
     Write(root + L"\\request.txt", Text(std::string(32, '9')));
     for (int i = 0; i < 60; ++i) leaving.OnUpdate(false, false, Now, Sha, "");

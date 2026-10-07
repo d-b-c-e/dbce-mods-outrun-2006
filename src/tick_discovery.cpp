@@ -17,7 +17,7 @@
 namespace TickDiscovery {
 static Controller controller;
 static LARGE_INTEGER frequency{}, origin{};
-static bool carHook = false, rootResolved = false;
+static bool carHook = false, rootResolved = false, faulted = false;
 
 // From DirectInputFFBHook::apply. The Vibration hook on the same address is enabled by its own settings; chain order
 // between the two inline hooks is not observed here, only which ones are enabled.
@@ -27,7 +27,15 @@ void NoteHooks(bool directInputFfbCarHook, bool vibrationCarHookEnabled) {
         " vibrationCarHookEnabled:" + (vibrationCarHookEnabled ? "1" : "0") + " chainOrder:unobserved";
 }
 
-static void Log(const std::string& line) { if (!line.empty()) spdlog::info("{}", line); }
+static void Log(const std::string& line) { try { if (!line.empty()) spdlog::info("{}", line); } catch (...) {} }
+
+// Nothing from discovery may escape into the game's update loop, car tick or exit. A fault stops discovery for the
+// rest of the session; the window it held is dropped (its outcome stays as last written, if any).
+static void Fault() noexcept
+{
+    faulted = true;
+    try { controller.session.reset(); spdlog::warn("TickDiscovery: stopped after an internal error"); } catch (...) {}
+}
 
 static bool NetworkActive() {
     if (!Game::SumoNet_CurNetDriver || !*Game::SumoNet_CurNetDriver) return false;
@@ -39,6 +47,8 @@ static bool NetworkActive() {
 }
 
 void OnUpdate() {
+    if (faulted) return;
+    try {
     if (!rootResolved) {
         rootResolved = true;
         wchar_t base[MAX_PATH]{};
@@ -52,12 +62,14 @@ void OnUpdate() {
         !carHook ? "car hook inactive" : "";
     Log(controller.OnUpdate(inGame, NetworkActive(), (long long)std::time(nullptr), OutRunLifecycle::ExactDiskSha256, unavailable));
     if (!hadSession && controller.session) QueryPerformanceCounter(&origin);
+    } catch (...) { Fault(); }
 }
 
 static void Copy(std::array<float, 16>& out, const D3DMATRIX& m) { std::memcpy(out.data(), &m, sizeof(float) * 16); }
 
 void Observe(EVWORK_CAR* car, bool post) {
-    if (!controller.session || !car) return;
+    if (faulted || !controller.session || !car) return;
+    try {
     Observation o;
     LARGE_INTEGER now{}; QueryPerformanceCounter(&now);
     o.micros = frequency.QuadPart ? (now.QuadPart - origin.QuadPart) * 1000000 / frequency.QuadPart : 0;
@@ -77,7 +89,8 @@ void Observe(EVWORK_CAR* car, bool post) {
     o.velocity = { car->spd_mb_20.x, car->spd_mb_20.y, car->spd_mb_20.z };
     Copy(o.m70, car->matrix_70); Copy(o.mB0, car->matrix_B0); Copy(o.mF0, car->matrix_F0);
     controller.Observe(post ? Phase::Post : Phase::Pre, o);
+    } catch (...) { Fault(); }
 }
 
-void FinalizeForExit() { Log(controller.Finalize()); }
+void FinalizeForExit() { if (faulted) return; try { Log(controller.Finalize()); } catch (...) { Fault(); } }
 } // namespace TickDiscovery

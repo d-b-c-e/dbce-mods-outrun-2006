@@ -47,9 +47,10 @@ namespace proxy { HMODULE origModule = reinterpret_cast<HMODULE>(2); }
 namespace FFB {
 void SilenceForLifecycle() { ++silences; }
 void LifecycleIdle() { SilenceForLifecycle(); }
-void FinalizeForExit() { assert(gameCleanups==0 && discoveryFinalizations==1); ++finalizations; assert(!ConsumerLifecycle::Runtime().ClaimFinalization()); }
+void FinalizeForExit() { assert(gameCleanups==0 && discoveryFinalizations==0); ++finalizations; assert(!ConsumerLifecycle::Runtime().ClaimFinalization()); }
 }
-namespace TickDiscovery { void FinalizeForExit() { assert(finalizations==0 && gameCleanups==0); ++discoveryFinalizations; } }
+// Discovery runs last, after mandatory cleanup and gate completion; even an escaping allocation failure is contained.
+namespace TickDiscovery { void FinalizeForExit() { assert(finalizations==1 && inputFinalizations==1 && gameCleanups==0 && !ConsumerLifecycle::Runtime().ClaimFinalization()); ++discoveryFinalizations; throw std::bad_alloc(); } }
 namespace DInputRemap { void FinalizeForExit() { assert(finalizations==1 && gameCleanups==0); ++inputFinalizations; } }
 void InputManager_FinalizeForExit() { assert(inputFinalizations==1 && gameCleanups==0); }
 

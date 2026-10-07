@@ -82,11 +82,13 @@ static bool Pin(void* address) {
 static void FinalizeAtOuterBoundary() {
     auto& gate = ConsumerLifecycle::Runtime();
     if (!gate.ClaimFinalization()) return;
-    TickDiscovery::FinalizeForExit(); // writes an armed window as incomplete; no device or game state
     FFB::FinalizeForExit();
     DInputRemap::FinalizeForExit();
     InputManager_FinalizeForExit();
     gate.CompleteFinalization();
+    // Read-only discovery last: outputs are silenced and the gate is complete before any disk work, and nothing from
+    // it may escape into the game's exit path.
+    try { TickDiscovery::FinalizeForExit(); } catch (...) {}
 }
 static bool QuitPending() {
     MSG message{};

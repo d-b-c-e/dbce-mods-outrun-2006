@@ -101,5 +101,12 @@ different working directories, spaced paths, settings retention, restore,
 rollback and failure exits (log `build/hud-telemetry-installer.log`). The dummy
 fixture never launched its synthetic executable.
 
-The correction is not installed yet. Live UDP delivery and mph/all-car checks
-remain open; the muted test above sent no telemetry.
+The reviewed ee41db9 correction was installed at 17:28 CT through that exact
+package's Windows PowerShell 5.1 installer, with the game closed and the shared
+lease held. Both runtime payloads match the package; all 27 pre-existing root
+files outside those payloads and their inventory remain exact. The native pin
+and saved settings are unchanged. Installer backup:
+`.wheel-settings-backups/20261008-222852-740-0e2dfda4`; independent receipt and
+owner copies: `_archive/2026-10-08/outrun-hud-install-1728`. No game was launched.
+Live UDP delivery and mph/all-car checks remain open; the earlier muted test
+sent no telemetry. Installation does not close those runtime checks.

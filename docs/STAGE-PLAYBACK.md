@@ -7,7 +7,14 @@ setting or native hook changed during this intake. DRIVE's completed diagnostic
 allowed this follow-up to begin; its Unity adapter cannot qualify these native
 x86 hooks.
 
-**October 8 current install:** reviewed force-delivery runtime `e5b44f8` is
+**October 8, 14:24 CT current install:** reviewed `5b19c9d` produced the first
+original software-only force capture: 3,601 rows, exact calculation replay,
+normal exit 0 and exact owner-file restoration. Read
+[the muted recorder contract and live evidence](2026-10-08-muted-force-capture.md).
+This closes producer-preserving mute and original constant-fallback capture;
+gameplay playback, physical output qualification and normalization remain open.
+
+**Earlier October 8 install:** reviewed force-delivery runtime `e5b44f8` is
 installed privately; native 41-export `50ba139`, five saved INI files retained.
 See [the installation and offline recovery evidence](2026-10-08-force-delivery-acknowledgment.md).
 Later source extends discovery with raw force inputs under schema 3, without

@@ -1,6 +1,17 @@
 # OutRun2006Tweaks-FFB working notes
 
-**October 8 current checkpoint:** `cbbaa51` schema-3 input observer installed
+**October 8, 14:24 CT current checkpoint:** reviewed private runtime `5b19c9d`
+is installed (proxy `B517AC92`, native 41-export `50ba139` unchanged). Its first
+process-muted original legacy recording has 3,601 rows; strict standalone
+recalculation matched every request and state. No WheelFfb module was loaded;
+native, rumble and telemetry delivery stayed blocked. Offline Palm Beach moving
+capture, normal exit 0, nine owner files/full inventory/two payloads restored
+exactly. Read `docs/2026-10-08-muted-force-capture.md` before repeating work.
+This qualifies the software constant-fallback recorder, not gameplay playback,
+periodic capture, physical force or cross-game normalization. Raw speed remains
+unqualified. The earlier menu hang is still open.
+
+**Earlier October 8 checkpoint:** `cbbaa51` schema-3 input observer installed
 privately with reviewed 41-export native `50ba139`, five INIs retained, no new
 physical test. A muted moving window has 3,506 complete pairs, finite force inputs,
 and exact restoration of nine owner files. One earlier menu attempt hung before

@@ -648,6 +648,7 @@ namespace FFB
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime(), true);
         if (!lease) return;
         if (ConsumerLifecycle::Runtime().Current() == ConsumerLifecycle::Gate::Phase::Paused) {
+            deliveryRecoveryClockRunning = false;
             if (initialized && ffbLoaded && !panicStopped) ffb.ZeroForces();
             prevConstantLevel = prevStructLevel = 0;
             warmupFrames = 0;
@@ -953,6 +954,7 @@ static void SampleSurface(EVWORK_CAR* car, float& roughness, DWORD& waterFlag)
     {
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime(), true);
         if (!lease || !initialized || !ffbLoaded || panicStopped) return;
+        deliveryRecoveryClockRunning = false;
         ffb.ZeroForces();
         prevConstantLevel = prevStructLevel = 0;
         warmupFrames = 0;

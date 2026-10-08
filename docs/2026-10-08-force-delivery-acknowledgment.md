@@ -75,6 +75,8 @@ fixture, exact signal recorder/replayer and x86 Release build. Fake access and
 effect loss cases cover a long background interval, failed neutral handshakes,
 successful return with a restarted ramp, nonzero suppression, and a persistent
 auxiliary failure expiring at two seconds despite accepted constant zeros.
-Evidence: `build/delivery-recovery-wheel2.log`,
-`build/delivery-recovery-lifecycle2.log`, `build/delivery-recovery-signal.log`,
-`build/delivery-recovery-build.log`. Physical focus recovery remains untested.
+Immediate and deferred lifecycle silence both pause the deadline, including
+focus loss where no more game updates arrive until the window returns.
+Evidence: `build/delivery-recovery-wheel3.log`,
+`build/delivery-recovery-lifecycle3.log`, `build/delivery-recovery-signal.log`,
+`build/delivery-recovery-build2.log`. Physical focus recovery remains untested.

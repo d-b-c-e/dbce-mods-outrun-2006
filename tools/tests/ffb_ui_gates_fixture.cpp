@@ -213,6 +213,26 @@ int main()
         recoveryNow += 1999;
         Update(&car);
         assert(initialized && nonzeroCalls == nonzeroBefore);
+        // Focus notification can arrive while the game stops ticking entirely.
+        // Exercise both immediate silence and the deferred producer-drain path.
+        if (transient == DIERR_NOTACQUIRED) {
+            assert(ConsumerLifecycle::Runtime().Pause());
+            SilenceForLifecycle();
+            ConsumerLifecycle::Runtime().Resume();
+            assert(deliveryRecoveryPending && !deliveryRecoveryClockRunning);
+            recoveryNow += 10000;
+            Update(&car);
+            assert(initialized && deliveryRecoveryClockRunning && nonzeroCalls == nonzeroBefore);
+            {
+                ConsumerLifecycle::Gate::Lease held(ConsumerLifecycle::Runtime());
+                assert(!ConsumerLifecycle::Runtime().Pause());
+                ConsumerLifecycle::Runtime().Resume();
+            }
+            assert(deliveryRecoveryPending && !deliveryRecoveryClockRunning);
+            recoveryNow += 10000;
+            Update(&car);
+            assert(initialized && nonzeroCalls == nonzeroBefore);
+        }
         outputResult = periodicResult = 1;
         Update(&car);
         assert(initialized && !deliveryRecoveryPending && !deliveryRecoveryClockRunning && deviceError.empty());

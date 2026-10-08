@@ -747,7 +747,7 @@ static void SelectDevice(const std::string& guid, const std::string& name)
 static void DevicePicker()
 {
     static bool listed = false;
-    if (!listed) { FFB::RefreshUiDevices(); listed = true; }
+    if (!listed) { FFB::RefreshUiDevices(false); listed = true; }
     const auto label = FFB::UiDeviceLabel();
     ImGui::TextUnformatted("FFB device");
     ImGui::SameLine(180 * UiScale());

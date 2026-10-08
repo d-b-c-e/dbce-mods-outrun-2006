@@ -39,7 +39,7 @@ void ZeroAllForces() { ++zeros; }
 const char* UiStatus() { return Settings::DirectInputFFB ? "Paused while settings are open" : "Off"; }
 static std::vector<DeviceChoice> choices;
 const std::vector<DeviceChoice>& UiDevices() { return choices; }
-void RefreshUiDevices() {}
+void RefreshUiDevices(bool) {}
 void SelectionChanged() { selectionZero = ++zeros; }
 std::string UiDeviceLabel() { return "Use steering wheel - Fixture wheel"; }
 }

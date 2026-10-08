@@ -435,10 +435,10 @@ namespace FFB
 		ffb.FreeDirectInput();
 		initialized = false;
 		initAttempted = true;
-		periodicsActive = false;
-		slotRoadTexture = slotTireSlip = -1;
-		prevStructLevel = 0;
-		warmupFrames = 0;
+		// Keep calculation state/route identifiers through this sample. Clearing
+		// them inside a sink changes the remainder of CalculateSignals and breaks
+		// its recorded post-state. initialized=false blocks every further native
+		// send. Explicit selection/Refresh resets the model before reacquisition.
 		deviceError = "Wheel refused output; released. Check the wheel, then Refresh devices";
 	}
 
@@ -551,7 +551,7 @@ namespace FFB
 
 	const std::vector<DeviceChoice>& UiDevices() { return uiDevices; }
 
-	void RefreshUiDevices()
+	void RefreshUiDevices(bool retry)
 	{
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
         if (!lease) return;
@@ -569,7 +569,7 @@ namespace FFB
 			for (const auto* p = text; *p; ++p) identity += static_cast<char>(*p);
 			uiDevices.push_back({ identity, name });
 		}
-		if (!initialized) { initAttempted = false; deviceError.clear(); }
+		if (!initialized && retry) SelectionChanged();
 	}
 
 	static void ApplySelectionChanged(bool resumePaused = false)

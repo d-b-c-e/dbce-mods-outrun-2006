@@ -31,7 +31,7 @@ void ZeroAllForces();
 const char* UiStatus();
 struct DeviceChoice { std::string guid, name; };
 const std::vector<DeviceChoice>& UiDevices();
-void RefreshUiDevices();
+void RefreshUiDevices(bool retry = true);
 void SelectionChanged();
 std::string UiDeviceLabel();
 }

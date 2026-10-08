@@ -140,7 +140,7 @@ int main()
     SetConstantForce(-1234);
     assert(freeCalls == beforeFree + 1 && !initialized && initAttempted && retainedForce == 0);
     assert(prevConstantLevel == 4321); // Refused command never becomes the deadband cache.
-    assert(!periodicsActive && slotRoadTexture == -1 && slotTireSlip == -1);
+    assert(!initialized); // Output blocked; calculation state is retained through the sample.
     assert(deviceError.find("refused output") != std::string::npos);
     SetConstantForce(2222); UpdatePeriodic(0, 0.5f, 25);
     assert(!DeferredInit() && outputCalls == beforeOutput + 1); // No automatic acquisition/retry.
@@ -171,7 +171,20 @@ int main()
     beforeOutput = outputCalls; beforeFree = freeCalls;
     UpdatePeriodic(0, 0.5f, std::numeric_limits<float>::infinity());
     assert(outputCalls == beforeOutput && freeCalls == beforeFree + 1 && !initialized);
+    sharedModel = new dbce::force::Model(sharedProfile.model);
+    sharedShaper = new dbce::force::Shaper(sharedProfile.shaper);
+    useSharedModel = true;
+    auto* retainedModel = sharedModel;
+    beforeOutput = outputCalls;
+    RefreshUiDevices(false); // Initial FFB-page population must not silently retry.
+    assert(initAttempted && sharedModel == retainedModel && !deviceError.empty());
+    RefreshUiDevices(); // Explicit action reconciles the failed model before opening again.
+    assert(!initAttempted && !initialized && !sharedModel && !sharedShaper && !useSharedModel);
+    assert(!periodicsActive && slotRoadTexture == -1 && slotTireSlip == -1 && warmupFrames == 0);
+    assert(outputCalls == beforeOutput && deviceError.empty());
+    assert(DeferredInit() && initialized && startCalls == 0);
     std::cout << "PASS: six production output gates zero constant/periodics before init; zero-before-switch; unbound follow-mode refusal; strict explicit GUID; driver refusal; zero-HWND refusal.\n";
     std::cout << "PASS: accepted-zero startup replaces retained force; refused zero releases and latches without auxiliaries; explicit retry only.\n";
     std::cout << "PASS: refused constant/periodic/zero release retained output without caching or retry; readiness loss still permits zero; nonfinite output settings refused.\n";
+    std::cout << "PASS: automatic device listing retains failure latch; explicit Refresh resets retained model without output before neutral reacquisition.\n";
 }

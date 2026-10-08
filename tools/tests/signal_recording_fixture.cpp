@@ -41,6 +41,11 @@ static void Require(bool value,const char* message){if(!value)throw std::runtime
 static void RejectConstant(LONG) {} // Models consumer admission refusal, no native calls.
 static void ThrowConstant(LONG) {throw std::runtime_error("synthetic sink interruption");}
 static void ChangeThrottle(EVWORK_CAR*car,float&roughness,DWORD&water){car->pedal_amount_34=200;roughness=0;water=0;}
+static int productionFrees=0, productionConstants=0, productionPeriodics=0;
+static bool refuseConstant=false;
+static int __cdecl ProductionConstant(int,int) {++productionConstants;return refuseConstant ? 0 : 1;}
+static int __cdecl ProductionPeriodic(int,int,int) {++productionPeriodics;return 0;}
+static void __cdecl ProductionFree() {++productionFrees;}
 static void Invalid(const R::Bytes&b){bool rejected=false;try{(void)R::Decode(b);}catch(const std::exception&){rejected=true;}Require(rejected,"invalid session accepted");}
 static void SelfTest(const char* input,const wchar_t* output) {
     auto frames=Read(input);Require(frames.size()>42,"synthetic state fixture too short");
@@ -109,7 +114,31 @@ static void SelfTest(const char* input,const wchar_t* output) {
     FFB::ResetCalculationState();idle.pedal_amount_34=100;Require(R::Begin(revision),"unstable throttle begin");
     FFB::CalculateSignals(&idle,0,0,{Constant,Periodic},Clock,ChangeThrottle);
     auto unstable=R::Take(true);Require(unstable&&unstable->failed&&!unstable->complete,"unstable throttle completed");Invalid(R::Encode(*unstable));
+    // Actual production sink refusal must not mutate model state inside a
+    // recorded calculation. Native functions are fake; no loader/device call.
+    HWND fakeWindow=reinterpret_cast<HWND>(1);Game::hWnd_ptr=&fakeWindow;
+    ConsumerLifecycle::hostVerified=true;
+    ConsumerLifecycle::actuatorReadiness=[](void*){return true;};
+    FFB::ffb.SetDeviceForcesXY=ProductionConstant;
+    FFB::ffb.UpdatePeriodicEffect=ProductionPeriodic;
+    FFB::ffb.FreeDirectInput=ProductionFree;
+    for(bool failConstant:{true,false}) {
+        R::Configure(s->frames[0].config);FFB::ResetCalculationState();
+        FFB::ffbLoaded=FFB::initialized=true;FFB::initAttempted=false;
+        FFB::periodicsActive=true;FFB::slotRoadTexture=0;FFB::slotTireSlip=1;
+        FFB::updateCounter=3;FFB::warmupFrames=30;
+        refuseConstant=failConstant;productionFrees=productionConstants=productionPeriodics=0;
+        f=frames[0];tick=f.tick;Require(R::Begin(revision),"production refusal begin");
+        FFB::CalculateSignals(&f.car,f.roughness,f.water,{FFB::SetConstantForce,FFB::UpdatePeriodic},Clock);
+        auto refused=R::Take(true);
+        Require(refused&&refused->complete&&refused->count==1,"production refusal capture incomplete");
+        Require(productionConstants==1&&productionFrees==1&&!FFB::initialized&&FFB::initAttempted,"production refusal did not release/latch");
+        Require(productionPeriodics==(failConstant?0:1),"output after production refusal");
+        Require(refused->frames[0].count==3&&refused->frames[0].requests[1].slot==0&&refused->frames[0].requests[2].slot==1,"producer requests lost after refusal");
+        Replay(*R::Decode(R::Encode(*refused)));
+    }
     std::cout<<"PASS: synthetic record/read/production recalculate; all legacy settings and initial/checkpoint state; constant/periodic observations; reset/config transitions; explicit complete/incomplete close; bounds/checksum/truncation/nonfinite/time/reset refusal; zero native output\n";
+    std::cout<<"PASS: actual constant/periodic sink refusals release/latch; all original model requests and post-state still replay exactly, no later native send\n";
 }
 #ifndef OUTRUN_RECORDING_NO_MAIN
 int main(int argc,char**argv){

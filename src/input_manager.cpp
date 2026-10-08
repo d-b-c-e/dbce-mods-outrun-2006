@@ -6,6 +6,7 @@
 
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
+#include "signal_mute_policy.hpp"
 #include "game_addrs.hpp"
 #include "overlay/overlay.hpp"
 
@@ -1085,6 +1086,7 @@ public:
 
 	void setVibration(WORD left, WORD right)
 	{
+		if (OutRunSignalMute::BlocksOutput()) return;
 		auto* controller = getPrimaryGamepad();
 		if (!controller)
 			return;

@@ -1,7 +1,9 @@
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$ExactExecutable)
+param([Parameter(Mandatory)][string]$ExactExecutable,[string]$DependencyRoot)
 $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+if(-not $DependencyRoot){$DependencyRoot=$repo}
+$DependencyRoot=(Resolve-Path -LiteralPath $DependencyRoot).Path
 # Qualified native adoption excludes worker-before-initialization API use.
 # The retained toolkit starts its watchdog only through SetHoldTimeoutMs.
 foreach ($source in Get-ChildItem -LiteralPath (Join-Path $repo 'src') -Recurse -File) {
@@ -21,11 +23,11 @@ Push-Location $out
 try {
     foreach($fixture in @('consumer_lifecycle','host_lifecycle')) {
         $arguments=@('/nologo','/std:c++latest','/EHsc','/MD','/D_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING','/D_CRT_SECURE_NO_WARNINGS','/DDIRECTINPUT_VERSION=0x0800','/DZYDIS_STATIC_BUILD','/DZYCORE_STATIC_BUILD')
-        $arguments += $includes | ForEach-Object { '/I"'+(Join-Path $repo $_)+'"' }
+        $arguments += $includes | ForEach-Object { $base=if($_ -eq 'src' -or $_ -eq 'lib\toolkit\include'){$repo}else{$DependencyRoot}; '/I"'+(Join-Path $base $_)+'"' }
         $arguments += '"'+(Join-Path $repo ('tools\tests\'+$fixture+'_fixture.cpp'))+'"'
         $executable=Join-Path $out ($fixture+'-fixture.exe')
         $arguments += '/Fe"'+$executable+'"'
-        $arguments += $libraries | ForEach-Object { '"'+(Join-Path $repo $_)+'"' }
+        $arguments += $libraries | ForEach-Object { '"'+(Join-Path $DependencyRoot $_)+'"' }
         $arguments += 'user32.lib shell32.lib ole32.lib'
         $arguments += '/link /MANIFEST:EMBED /MANIFESTUAC:"level=''asInvoker'' uiAccess=''false''"'
         $runner=Join-Path $out 'build-fixture.cmd'

@@ -72,5 +72,10 @@ try {
  & $recordExe replay ($session+'.mismatch') 2>&1|Out-Null;if($LASTEXITCODE -ne 1){throw 'recorded expected mismatch must exit1'}
  $corrupt=Join-Path $out 'corrupt.osig';$bytes=[IO.File]::ReadAllBytes($session);$bytes[48]=$bytes[48] -bxor 1;[IO.File]::WriteAllBytes($corrupt,$bytes)
  & $recordExe replay $corrupt 2>&1|Out-Null;if($LASTEXITCODE -ne 2){throw 'corrupt file must exit2'}
+ $mutedExe=Join-Path $out 'signal-muted.exe'
+ $mutedArgs=@($compileArgs | ForEach-Object {$_.Replace('signal_calculation_fixture.cpp','signal_muted_fixture.cpp').Replace('/Fe"'+$exe+'"','/Fe"'+$mutedExe+'"')})
+ @('@echo off',('call "'+$vs+'\VC\Auxiliary\Build\vcvars32.bat" >nul'),'if errorlevel 1 exit /b %errorlevel%',('cl '+($mutedArgs -join ' ')),'exit /b %errorlevel%')|Set-Content $runner -Encoding ascii
+ & $runner;if($LASTEXITCODE -ne 0){throw 'muted fixture compile failed'}
+ foreach($mode in @('legacy','invalid','empty','stop','lease','stale-lease','model','car','invalid-input','exit','mid-frame','overflow','write-failure')){& $mutedExe $mode (Join-Path $out ('muted-'+$mode));if($LASTEXITCODE -ne 0){throw "muted $mode failed"}}
  Write-Host "PASS: actual legacy calculation, constant/periodic reset repeatability, 48-frame warmup/shift/crash/water history; fixed60Hz semantics; numeric/privacy/version/bounds/truncation/order and exits 0/1/2. Memory-only output. Evidence: $out"
 }finally{Pop-Location}

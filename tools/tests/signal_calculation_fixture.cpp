@@ -9,7 +9,13 @@ namespace TickDiscovery { void Observe(EVWORK_CAR*, bool) {} void NoteHooks(bool
 #include <limits>
 #include <locale>
 float VibrationLeftMotor=0, VibrationRightMotor=0;
-double __cdecl sub_1149C0(unsigned int,int,DWORD*) { std::abort(); }
+double __cdecl sub_1149C0(unsigned int,int,DWORD* water) {
+#ifdef OUTRUN_MUTED_FIXTURE
+    *water=1;return 0.8;
+#else
+    std::abort();
+#endif
+}
 Hook::Hook() {}
 namespace DInputRemap {
 IDirectInputDevice8A* GetPrimaryDevice() { std::abort(); }

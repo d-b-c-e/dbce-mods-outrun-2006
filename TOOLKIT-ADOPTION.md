@@ -48,6 +48,14 @@ the existing calculation. 402 discovery checks, 12 analyzer tests and original
 legacy calculation replay pass. Original command/state capture under mute and
 gameplay replay are still unfinished; STD-012/021/025/027 stay pending.
 
+The subsequent software-force candidate adds a process-lifetime output mute and
+bounded original legacy producer capture, with explicit virtual admission and
+V3 exact replay. Existing V2 replay remains unchanged. It passes synthetic
+production/lifecycle fixtures but awaits peer review and a live moving capture;
+STD-012 remains pending for gameplay replay and live qualification. No force
+normalization, independent-strength composition or new model is claimed. See
+`docs/2026-10-08-muted-force-capture.md`.
+
 October 8 force delivery follow-up preserves STD-012's distinction between
 requested signals and accepted output: refused native updates no longer advance
 the accepted-force cache and release/latch output until an explicit retry.

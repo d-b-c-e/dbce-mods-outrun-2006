@@ -6,6 +6,7 @@
 
 namespace DInputRemap { void BeginInputTick(); }
 namespace TickDiscovery { void OnUpdate(); }
+namespace FFB { void SignalCaptureUpdate() noexcept; }
 
 // from timeapi.h, which we can't include since our proxy timeBeginPeriod etc funcs will conflict...
 typedef struct timecaps_tag {
@@ -298,6 +299,7 @@ class ReplaceGameUpdateLoop : public Hook
 		{
 			DInputRemap::BeginInputTick();
 			TickDiscovery::OnUpdate(); // read-only discovery window bookkeeping; inert unless externally armed
+			FFB::SignalCaptureUpdate(); // inert unless this process explicitly muted physical output at startup
 			// Fetch latest input state
 			// (do this inside our update-loop so that any hooked game funcs have accurate state...)
 			Input::Update();

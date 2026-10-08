@@ -45,6 +45,7 @@ static BOOL WINAPI FixturePeek(LPMSG, HWND, UINT, UINT, UINT) { return quit; }
 Hook::Hook() {}
 namespace proxy { HMODULE origModule = reinterpret_cast<HMODULE>(2); }
 namespace FFB {
+void FinalizeSignalCapture() noexcept { assert(finalizations==1 && inputFinalizations==1 && gameCleanups==0 && !ConsumerLifecycle::Runtime().ClaimFinalization()); }
 void SilenceForLifecycle() { ++silences; }
 void LifecycleIdle() { SilenceForLifecycle(); }
 void FinalizeForExit() { assert(gameCleanups==0 && discoveryFinalizations==0); ++finalizations; assert(!ConsumerLifecycle::Runtime().ClaimFinalization()); }

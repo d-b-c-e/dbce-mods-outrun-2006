@@ -19,7 +19,7 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-009 | Dashboard telemetry matches the HUD | unchecked |  |
 | STD-010 | Install the latest build for testing | adopted | Reviewed private e5b44f8 installed October 8 with 41-export native 50ba139; both runtime hashes and five retained INIs verified. docs/2026-10-08-force-delivery-acknowledgment.md. Later schema-3 source awaits review/live input observation; no physical acceptance inferred. |
 | STD-011 | Work lands on main | adopted | This scoped playback intake was merged/pushed to master; accepted runtime remains independently identified. |
-| STD-012 | Reproduce the route and preserve original signals | pending | 069fe41 source fixes passed 100 discovery/lifecycle/33 independent fault checks, then a stationary Palm Beach discovery produced 5,878 independently checked rows / 2,939 pairs (docs/2026-10-07-live-discovery-readback.md). Complete pose ownership, moving-car units, producer-preserving output mute and gameplay replay remain unfinished. The 128-frame force recorder lacks runtime arm/save. Candidate includes cf6e176 automatic pad-selection fix; prior freeze remains unexplained. |
+| STD-012 | Reproduce the route and preserve original signals | partial | Installed 5b19c9d: process-lifetime output mute and external original-force arm/save qualified with 3,601 live rows and exact request/state replay; Claude independently repeated replay and owner-file hashes. Software constant-fallback route only, no native output. Companion discovery has 3,600 moving pairs. Complete pose ownership, speed units and gameplay replay remain open; intermittent menu freeze unresolved. See docs/2026-10-08-muted-force-capture.md. |
 | STD-013 | The installed build launches plainly | partial | Repaired copy and prior f021736 passed ordinary startup/offline entry. Claude's 069fe41 plain-launch discovery reached Palm Beach again; retained frames and eight restored owner files independently checked, exit 0 remains reported. Diagnostic pad mappings were temporary; normal owner-wheel driving remains unqualified. |
 | STD-014 | Request reciprocal review when progress stalls | adopted | Reviewed Claude's focused retries, reproduced mapping and update-sampling defects, and prepared a tested input candidate for reciprocal review. The responsive probe is not a frozen-process stack; no speculative lifecycle-lock change. See docs/2026-10-06-focused-input-followup.md. |
 | STD-015 | Triples on Surround and separate monitors | partial (source) | SPN planar only: [Triple] Screens = Separate monitors spans the borderless window over three equal side-by-side monitors (f4e9f01, topology fixture Test-TripleSpan.ps1). Not projected triples; native in-race aspect at 7680 and independent projected views remain unqualified. |
@@ -64,3 +64,9 @@ package is installed with five INI files retained; transient access/effect loss
 recovers through accepted neutral before a new warmup, permanent refusal latches.
 Physical recovery and original muted capture remain untested; STD-012 remains pending. See
 `docs/2026-10-08-force-delivery-acknowledgment.md`.
+
+The historical pre-capture statements above are superseded by the October 8
+14:23 CT original capture (`5b19c9d`). Producer-preserving mute and software
+force recording/recalculation now pass; physical delivery, independent strengths
+and gameplay playback remain separate gaps. Source `3fac6d0` adds passive HUD
+speed discovery with 410 checks/14 analyzer tests/Release build, not yet installed.

@@ -133,6 +133,11 @@ Evidence, copied recordings, frames, exact request, module list, installer log,
 replay result and restoration receipt are under
 `_archive/2026-10-08/outrun-original-20261008-141510`.
 
+Claude independently verified the original data hash, all nine live owner files
+against the saved record and disk copies, both installed payloads and request/
+outcome identity. Repeating strict replay on a byte-identical copy returned
+exit 0 with exact requests/state (hcom receipt 1908). No second game run was needed.
+
 The earlier intermittent menu hang remains open. This successful normal exit
 does not diagnose it. Gameplay pose ownership/writing, speed units, original
 periodic-route capture and physical force normalization remain unqualified.

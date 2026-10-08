@@ -45,6 +45,8 @@ implemented by this change. See `docs/TICK-DISCOVERY.md`.
 October 8 force delivery follow-up preserves STD-012's distinction between
 requested signals and accepted output: refused native updates no longer advance
 the accepted-force cache and release/latch output until an explicit retry.
-Production fake ABI and legacy signal replay pass; source review/install are
-pending, and STD-012 remains pending. See
+Production fake ABI and legacy signal replay pass. The reviewed `e5b44f8` private
+package is installed with five INI files retained; transient access/effect loss
+recovers through accepted neutral before a new warmup, permanent refusal latches.
+Physical recovery and original muted capture remain untested; STD-012 remains pending. See
 `docs/2026-10-08-force-delivery-acknowledgment.md`.

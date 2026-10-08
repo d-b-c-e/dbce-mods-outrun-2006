@@ -64,8 +64,8 @@ Compiling the new recorder fixture against that first source (`18b32ad`) fails
 with `producer requests lost after refusal`; the corrected source passes the
 same case. Negative evidence: `build/delivery-ack-negative-18b32ad`.
 
-Source candidate only at this checkpoint: independent review, clean package and
-installation remain pending. Installed native-maintenance `604d5d7` is preserved.
+That source checkpoint was subsequently superseded by the reviewed and installed
+candidate below.
 No game, real device or force was used by these fixtures. Producer-preserving
 muted capture and stage playback are still unfinished; this closes a prerequisite
 in the delivery/recording contract, not those features.
@@ -80,3 +80,25 @@ focus loss where no more game updates arrive until the window returns.
 Evidence: `build/delivery-recovery-wheel3.log`,
 `build/delivery-recovery-lifecycle3.log`, `build/delivery-recovery-signal.log`,
 `build/delivery-recovery-build2.log`. Physical focus recovery remains untested.
+
+## Reviewed private installation, October 8 05:58 CT
+
+Claude's final cross-review of `03bf2bd` plus `e5b44f8` passed. Its medium
+focus-loss deadline finding is closed; a low note remains that background
+updates can repeat best-effort zero attempts while recovery is pending. No
+accepted-zero or physical-stop guarantee is inferred from those attempts.
+
+Clean runtime `e5b44f80f0c028e4c22744c98636f6e499f3da6e` was rebuilt and packaged
+with `-ReviewOnly`. Actual Windows PowerShell 5.1 and batch installer routes pass,
+including retention, restore and rollback. ZIP SHA-256:
+`1539E13A388F9A4B0B870E5095CC091D4910BD2A5A82E10D59E7D8326BF5DFD4`.
+Installed proxy: `B2D9B6848F53F817D4F025B9581F2619F9AA3B307E420A5BE035D591C6AA3F66`.
+The reviewed 41-export x86 native remains `432727681B1A8A6F62D68F2E1ED865FF9F229AECCC628B82FA97147626451968`.
+
+Installation held the shared lease with the game closed, verified both runtime
+hashes and preserved all five existing INI files. Evidence:
+`build/delivery-e5b44f8-install/verified.json`; installer backup:
+`.wheel-settings-backups/20261008-105836-838-f8168d18` in the existing Stream Deck
+game folder. No launch or physical force test was performed for this installation.
+Physical focus recovery, original muted force capture and route playback remain
+open.

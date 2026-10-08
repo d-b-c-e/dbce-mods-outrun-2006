@@ -34,6 +34,10 @@
 #include "overlay/overlay.hpp"
 #include "wheel_ui_snapshot.hpp"
 #include "consumer_lifecycle.hpp"
+#include "signal_mute_policy.hpp"
+#include "signal_capture_contract.hpp"
+#include "host_lifecycle_policy.hpp"
+#include <ctime>
 
 // External vibration data from hooks_forcefeedback.cpp
 extern float VibrationLeftMotor;
@@ -90,6 +94,7 @@ namespace Telemetry
 
 	static bool Init()
 	{
+		if (OutRunSignalMute::BlocksOutput()) return false;
 		if (!Settings::TelemetryEnabled)
 			return false;
 
@@ -145,6 +150,7 @@ namespace Telemetry
 
 	static void Write(EVWORK_CAR* car, bool inGameplay)
 	{
+		if (OutRunSignalMute::BlocksOutput()) return;
 		if (!Settings::TelemetryEnabled) return;
 		// Write to shared memory (SimHub)
 		if (pData)
@@ -295,6 +301,7 @@ extern IDirectInput8A* g_RealDirectInput8;
 
 namespace FFB
 {
+    void ProcessMutedSignals(EVWORK_CAR* car);
 	// DirectInput FFB state. The device, the effects and their whole lifecycle
 	// live in WheelFfb.dll (dbce-wheel-mod-toolkit) now; what stays here is the
 	// force model, which is the part that is actually about OutRun.
@@ -492,6 +499,7 @@ namespace FFB
 
 	static void SetConstantForce(LONG magnitude)
 	{
+		if (OutRunSignalMute::BlocksOutput()) return;
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
         if (!lease) return;
 		if (!initialized || !ffbLoaded || panicStopped)
@@ -515,6 +523,7 @@ namespace FFB
 	// than 5% and period less than 10%, and recreates a slot whose handle died.
 	static void UpdatePeriodic(int slot, float magnitude01, float freqHz)
 	{
+		if (OutRunSignalMute::BlocksOutput()) return;
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
         if (!lease) return;
 		if (!initialized || slot < 0 || !ffbLoaded || panicStopped)
@@ -550,6 +559,7 @@ namespace FFB
 	// because DirectInput needs a valid HWND.
 	static bool LoadApi()
 	{
+		if (OutRunSignalMute::BlocksOutput()) return false;
 		if (!ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return false;
 		if (ffbLoaded) return true;
 
@@ -691,6 +701,7 @@ namespace FFB
 
 	bool DeferredInit()
 	{
+		if (OutRunSignalMute::BlocksOutput()) return false;
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
         if (!lease) return false;
 		if (initAttempted) return initialized;
@@ -895,6 +906,11 @@ static void SampleSurface(EVWORK_CAR* car, float& roughness, DWORD& waterFlag)
 		bool inGameplay = IsInGameplay();
 		Telemetry::Write(car, inGameplay);
 
+        if (OutRunSignalMute::BlocksOutput()) {
+            ProcessMutedSignals(car);
+            return;
+        }
+
 		// FFB processing only when DirectInputFFB is enabled
 		if (!Settings::DirectInputFFB || Overlay::IsActive || Overlay::WheelSettingsVisible ||
 			Overlay::IsBindingDialogActive || GetForegroundWindow() != Game::GameHwnd() ||
@@ -959,6 +975,7 @@ static void SampleSurface(EVWORK_CAR* car, float& roughness, DWORD& waterFlag)
 	{
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
         if (!lease) return "Stopped for game exit";
+		if (OutRunSignalMute::BlocksOutput()) return "Diagnostic: physical output muted until this process exits";
 		if (!Settings::DirectInputFFB) return "Off - choose On to resume";
 		if (panicStopped) return "Stopped for game exit";
 		if (!deviceError.empty()) return deviceError.c_str();
@@ -970,6 +987,9 @@ static void SampleSurface(EVWORK_CAR* car, float& roughness, DWORD& waterFlag)
 		return initialized ? "Output enabled (wheel feel not verified)" : "Waiting for the first driving update";
 	}
 }
+
+#include "signal_recording_codec.hpp"
+#include "signal_capture_runtime.inl"
 
 // ====================================================================
 // Hook class -- self-registering via static instance
@@ -1000,7 +1020,7 @@ public:
 	{
 		// F6 can enable either feature after startup. This hook alone does not
 		// initialize/acquire the wheel or emit telemetry.
-		return Settings::OverlayEnabled || Settings::DirectInputFFB || Settings::TelemetryEnabled;
+		return Settings::OverlayEnabled || Settings::DirectInputFFB || Settings::TelemetryEnabled || OutRunSignalMute::BlocksOutput();
 	}
 
 	bool apply() override

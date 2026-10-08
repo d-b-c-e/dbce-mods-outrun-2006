@@ -8,6 +8,7 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 #include "wheel_settings_policy.hpp"
+#include "signal_mute_policy.hpp"
 
 void InitExceptionHandler(); // hooks_exceptions.cpp
 
@@ -467,6 +468,10 @@ void Plugin_Init()
 	}
 
 	spdlog::info("OutRun2006Tweaks v" MODULE_VERSION_STR " - github.com/emoose/OutRun2006Tweaks");
+    if (OutRunSignalMute::BlocksOutput()) {
+        spdlog::warn("SignalCapture: PROCESS MUTE {}; WheelFfb load/init/sends, controller rumble and motion telemetry delivery blocked until exit",
+            OutRunSignalMute::StartupMode()==OutRunSignalMute::Mode::LegacyConstant ? "legacy" : "invalid-mode-refused");
+    }
 	Module::to_log();
 
 	if (!Settings::read(Module::IniPath))

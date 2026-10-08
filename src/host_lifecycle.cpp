@@ -14,7 +14,7 @@
 #pragma comment(lib, "Advapi32.lib")
 #pragma comment(lib, "Comctl32.lib")
 
-namespace FFB { void FinalizeForExit(); void SilenceForLifecycle(); void LifecycleIdle(); }
+namespace FFB { void FinalizeForExit(); void SilenceForLifecycle(); void LifecycleIdle(); void FinalizeSignalCapture() noexcept; }
 namespace DInputRemap { void FinalizeForExit(); }
 namespace TickDiscovery { void FinalizeForExit(); }
 void InputManager_FinalizeForExit();
@@ -86,6 +86,7 @@ static void FinalizeAtOuterBoundary() {
     DInputRemap::FinalizeForExit();
     InputManager_FinalizeForExit();
     gate.CompleteFinalization();
+    FFB::FinalizeSignalCapture(); // physical cleanup and lease drain always precede capture disk work
     // Read-only discovery last: outputs are silenced and the gate is complete before any disk work, and nothing from
     // it may escape into the game's exit path.
     try { TickDiscovery::FinalizeForExit(); } catch (...) {}

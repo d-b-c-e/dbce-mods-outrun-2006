@@ -1,16 +1,19 @@
 // Included inside FFB. No runtime enable setting: explicit owner-controlled
 // Begin/Take API only. Producers append to preallocated memory; never file I/O.
 namespace SignalRecording {
-constexpr size_t Capacity=128, StateCount=46, ConfigCount=13, InputCount=10;
+constexpr size_t LegacyCapacity=128, Capacity=8192, StateCount=46, ConfigCount=13, InputCount=10;
 using State=std::array<double,StateCount>;
 using Config=std::array<double,ConfigCount>;
 struct Request { double kind=0, slot=0, magnitude=0, frequency=0, previousAfter=0; };
 struct Frame { DWORD tick=0; bool checkpoint=false; State before{},after{}; Config config{};
-    std::array<double,InputCount> input{}; std::array<Request,3> requests{}; size_t count=0; };
+    std::array<double,InputCount> input{}; std::array<Request,3> requests{}; size_t count=0;
+    std::array<double,10> context{}; }; // v3 only: update/appTime/powerOn/ticks/mode/gameMode/stage/carId/carKind/manual
 struct Session { std::array<unsigned char,20> source{}; std::array<Frame,Capacity> frames{};
-    size_t count=0; bool complete=false, failed=false; };
+    size_t count=0; bool complete=false, failed=false, softwareOnly=false;
+    size_t Limit() const { return softwareOnly ? Capacity : LegacyCapacity; } };
 static std::unique_ptr<Session> session;
 static Frame* current=nullptr;
+static std::array<double,10> pendingContext{};
 static State Snapshot() {
     State s={double(sharedPrevGear),double(prevGear),double(prevCollisionFlags),prevSpeed,smoothedLateral,
         double(speedHistoryIdx),double(latHistoryIdx),double(crashImpulseTimer),crashImpulseForce,
@@ -39,7 +42,7 @@ static bool SafeInput(const std::array<double,InputCount>& input){
     return Finite(input)&&input[0]>=0&&Integral(input[1],0,4294967295.0)&&Integral(input[4],0,6)&&
         Integral(input[7],0,255)&&input[8]>=0&&input[8]<=1&&Integral(input[9],0,1);
 }
-static bool Begin(std::string_view revision) {
+static bool Begin(std::string_view revision, bool softwareOnly=false) {
     ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
     if(!lease || session || revision.size()!=40 || useSharedModel ||
        (!Settings::FFBProfile.empty() && _stricmp(Settings::FFBProfile.c_str(),"legacy")))return false;
@@ -47,6 +50,7 @@ static bool Begin(std::string_view revision) {
     if(!next)return false;
     auto hex=[](char c)->int{if(c>='0'&&c<='9')return c-'0';if(c>='a'&&c<='f')return c-'a'+10;return -1;};
     for(size_t i=0;i<20;i++){int a=hex(revision[i*2]),b=hex(revision[i*2+1]);if(a<0||b<0)return false;next->source[i]=(unsigned char)(a*16+b);}
+    next->softwareOnly=softwareOnly;
     session=std::move(next); return true;
 }
 static std::unique_ptr<Session> Take(bool complete) {
@@ -57,12 +61,17 @@ static std::unique_ptr<Session> Take(bool complete) {
 }
 static Frame* Start(EVWORK_CAR* car,DWORD (WINAPI *clock)()) {
     if(!session || session->failed)return nullptr;
-    if(current || session->count==Capacity || useSharedModel ||
+    if(current || session->count==session->Limit() || useSharedModel ||
        (!Settings::FFBProfile.empty() && _stricmp(Settings::FFBProfile.c_str(),"legacy"))){session->failed=true;return nullptr;}
     Frame& f=session->frames[session->count]; f=Frame{}; f.tick=clock(); f.before=Snapshot(); f.config=Configuration();
+    if(session->softwareOnly)f.context=pendingContext;
     f.input={car->field_1C4,double(car->field_8),car->field_264,car->field_268,double(car->cur_gear_208),
         car->field_1D0,car->field_1D4,double(car->pedal_amount_34),0,0};
     f.checkpoint=session->count==0 || f.before!=session->frames[session->count-1].after;
+    // A software-only capture must never claim a loaded force module or
+    // negotiated hardware periodic slots. Its constant sink is virtual.
+    if(session->softwareOnly && (ffbLoaded || initialized || periodicsActive ||
+        slotRoadTexture!=-1 || slotTireSlip!=-1)){session->failed=true;return nullptr;}
     if(!SafeState(f.before)||!Finite(f.config)||!SafeInput(f.input)||
        (session->count && f.tick<session->frames[session->count-1].tick)){session->failed=true;return nullptr;}
     current=&f; return &f;

@@ -33,7 +33,7 @@ static void Replay(const R::Session&s) {
         car.field_1C4=(float)f.input[0];car.field_8=(uint32_t)f.input[1];car.field_264=(float)f.input[2];car.field_268=(float)f.input[3];
         car.cur_gear_208=(uint32_t)f.input[4];car.field_1D0=(float)f.input[5];car.field_1D4=(float)f.input[6];car.pedal_amount_34=(int)f.input[7];
         expectedFrame=&f;requestIndex=0;
-        FFB::CalculateSignals(&car,(float)f.input[8],(DWORD)f.input[9],{ObserveConstant,ObservePeriodic},Clock);
+        FFB::CalculateSignals(&car,(float)f.input[8],(DWORD)f.input[9],{ObserveConstant,ObservePeriodic},Clock,nullptr,s.softwareOnly);
         if(requestIndex!=f.count||R::Snapshot()!=f.after)throw Mismatch("count/post-state mismatch");
     }
 }
@@ -86,8 +86,8 @@ static void SelfTest(const char* input,const wchar_t* output) {
     R::SaveNew((std::wstring(output)+L".mismatch").c_str(),*bad);
     R::Configure(s->frames[0].config);FFB::ResetCalculationState();
     Require(R::Begin(revision),"overflow begin");
-    auto f=frames[0];for(size_t i=0;i<=R::Capacity;i++){tick=(DWORD)i;FFB::CalculateSignals(&f.car,f.roughness,f.water,{Constant,Periodic},Clock);}
-    auto full=R::Take(true);Require(full&&full->failed&&!full->complete&&full->count==R::Capacity,"bounded overflow completion");Invalid(R::Encode(*full));
+    auto f=frames[0];for(size_t i=0;i<=R::LegacyCapacity;i++){tick=(DWORD)i;FFB::CalculateSignals(&f.car,f.roughness,f.water,{Constant,Periodic},Clock);}
+    auto full=R::Take(true);Require(full&&full->failed&&!full->complete&&full->count==R::LegacyCapacity,"bounded overflow completion");Invalid(R::Encode(*full));
     Require(R::Begin(revision),"abort begin");auto aborted=R::Take(false);Require(aborted&&!aborted->complete,"explicit incomplete close");Invalid(R::Encode(*aborted));
     Settings::FFBProfile="named-profile";Require(!R::Begin(revision),"named profile accepted");Settings::FFBProfile="legacy";
     FFB::ResetCalculationState();Require(R::Begin(revision),"nonfinite capture begin");

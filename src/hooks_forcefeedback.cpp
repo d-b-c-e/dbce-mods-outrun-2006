@@ -4,6 +4,7 @@
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
 #include "game_addrs.hpp"
+#include "signal_mute_policy.hpp"
 
 #include "Xinput.h"
 
@@ -14,6 +15,7 @@ float VibrationRightMotor = 0.f;
 
 void SetVibration(int userId, float leftMotor, float rightMotor)
 {
+    if (OutRunSignalMute::BlocksOutput()) return;
     if (!Settings::VibrationMode)
         return;
     else if (Settings::VibrationMode == 2) // Swap L/R

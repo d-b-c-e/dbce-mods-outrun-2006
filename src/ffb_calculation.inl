@@ -1,9 +1,8 @@
 // Included inside FFB after its state declarations. Production calculation only.
 struct CalculationSink { void (*constant)(LONG); void (*periodic)(int, float, float); };
 #include "signal_recording.inl"
-#ifdef OUTRUN_OFFLINE_SIGNALS
-// Compile-time offline seam only: never enabled by INI or shipped runtime.
-// Caller owns settings/model identity and must run a single isolated calculation.
+// Producer reset, also used when a new local car starts an explicitly muted
+// legacy session. Never opens, releases or claims a native device.
 static void ResetCalculationState()
 {
     sharedPrevGear = prevGear = prevCollisionFlags = 0;
@@ -19,10 +18,10 @@ static void ResetCalculationState()
     if (sharedModel) sharedModel->reset();
     if (sharedShaper) sharedShaper->reset();
 }
-#endif
 static void CalculateSignals(EVWORK_CAR* car, float roughness, DWORD waterFlag,
     const CalculationSink& sink, DWORD (WINAPI *clock)(),
-    void (*sampleSurface)(EVWORK_CAR*, float&, DWORD&) = nullptr)
+    void (*sampleSurface)(EVWORK_CAR*, float&, DWORD&) = nullptr,
+    bool softwareOnly = false)
 {
     SignalRecording::Scope recordedFrame(car,clock);
 		// Warmup: ramp force scaling from 0 to 1 over first N frames.
@@ -252,7 +251,7 @@ static void CalculateSignals(EVWORK_CAR* car, float roughness, DWORD waterFlag,
                 SignalRecording::Observe(1,0,diMagnitude,0);
             }
 		}
-		else if (ffbLoaded)
+		else if (ffbLoaded || softwareOnly)
 		{
 			// --- Backbone: virtual spring ---
 			// speedCurve rises fast (full effect by 25% speed) then keeps growing

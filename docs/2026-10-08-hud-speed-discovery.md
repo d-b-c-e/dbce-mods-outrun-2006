@@ -92,5 +92,14 @@ removing that dependency would change force behavior and is outside this fix.
 `tools/tests/Test-HudSpeed.ps1` passes 41 x86 checks through the actual vendored
 311-byte FM7 encoder (captured range, known units, speed offset, invalid values).
 The full x86 Release build and original force/recording/mute regression pass.
-This telemetry correction has not been packaged or installed. Live UDP delivery
-and mph/all-car checks remain open; the muted test above sent no telemetry.
+Claude's source review passed. Private review package
+`build/packages/outrun-hud-telemetry-ee41db9` was built from the reviewed runtime;
+ZIP SHA-256 is
+`64035E642ECF7D33C95047DDEBF923223D88BAA64469E73A16B84CDB953F0421`.
+The actual Windows PowerShell 5.1 and batch installer checks pass, including
+different working directories, spaced paths, settings retention, restore,
+rollback and failure exits (log `build/hud-telemetry-installer.log`). The dummy
+fixture never launched its synthetic executable.
+
+The correction is not installed yet. Live UDP delivery and mph/all-car checks
+remain open; the muted test above sent no telemetry.

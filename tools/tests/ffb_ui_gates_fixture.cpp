@@ -29,10 +29,14 @@ int GetTelemetryBrake() { return -1; }
 UiSnapshot ReadUiSnapshot() { return {}; }
 }
 static int outputCalls = 0, initCalls = 0, freeCalls = 0, strictCalls = 0;
+static int outputResult = 1, retainedForce = 0, startCalls = 0, auxiliaryCreates = 0;
 static GUID selected{};
-static int __cdecl Output(int x, int y) { assert(x == 0 && y == 0); ++outputCalls; return 1; }
+static int __cdecl Output(int x, int y) { assert(x == 0 && y == 0); ++outputCalls; if(outputResult)retainedForce=0; return outputResult; }
 static int __cdecl Periodic(int, int magnitude, int) { assert(magnitude == 0); ++outputCalls; return 1; }
-static void __cdecl Free() { ++freeCalls; }
+static void __cdecl Free() { ++freeCalls; retainedForce=0; }
+static BOOL __cdecl Start() { ++startCalls; return TRUE; } // Would replay retainedForce unchanged.
+static int __cdecl AcceptedInit(int hwnd) { assert(hwnd == 1); ++initCalls; return 1; }
+static int __cdecl CreateAuxiliary(int) { ++auxiliaryCreates; return 0; }
 static void __cdecl Preferred(const char*) {}
 static void __cdecl PreferredIndex(int index) { assert(index == -1); }
 static void __cdecl PreferredGuid(const void* value) { selected = *static_cast<const GUID*>(value); }
@@ -63,6 +67,8 @@ int main()
     ffb.EnumerateDevices = Enumerate;
     ffb.InitDirectInput = RefusedInit;
     ffb.GetLastHResult = LastError;
+    ffb.StartEffect = Start;
+    ffb.CreatePeriodicEffect = CreateAuxiliary;
     EVWORK_CAR car{};
     for (int gate = 0; gate < 6; ++gate)
     {
@@ -103,5 +109,30 @@ int main()
     initAttempted = false;
     hwnd = nullptr;
     assert(!DeferredInit() && initCalls == 1); // never hand native a zero HWND
+    // A retained nonzero effect must be replaced with an accepted zero before
+    // startup completes. StartEffect would replay the previous parameters.
+    hwnd = reinterpret_cast<HWND>(1);
+    ffb.InitDirectInput = AcceptedInit;
+    Settings::FFBProfile = "legacy";
+    Settings::FFBUsePeriodicEffects = false;
+    initAttempted = initialized = false;
+    retainedForce = 5000;
+    int beforeOutput = outputCalls;
+    assert(DeferredInit() && initialized);
+    assert(outputCalls == beforeOutput + 1 && retainedForce == 0 && startCalls == 0);
+    assert(DeferredInit() && outputCalls == beforeOutput + 1); // no repeat startup
+    SelectionChanged();
+    Settings::FFBUsePeriodicEffects = true;
+    outputResult = 0; retainedForce = 5000;
+    int beforeFree = freeCalls;
+    assert(!DeferredInit() && !initialized && initAttempted);
+    assert(freeCalls == beforeFree + 1 && retainedForce == 0 && auxiliaryCreates == 0);
+    assert(slotRoadTexture == -1 && slotTireSlip == -1 && !periodicsActive && startCalls == 0);
+    assert(deviceError.find("neutral startup") != std::string::npos);
+    beforeOutput = outputCalls;
+    assert(!DeferredInit() && outputCalls == beforeOutput); // latched until explicit Refresh
+    SelectionChanged(); outputResult = 1; Settings::FFBUsePeriodicEffects = false;
+    assert(DeferredInit() && initialized && startCalls == 0); // explicit retry succeeds
     std::cout << "PASS: six production output gates zero constant/periodics before init; zero-before-switch; unbound follow-mode refusal; strict explicit GUID; driver refusal; zero-HWND refusal.\n";
+    std::cout << "PASS: accepted-zero startup replaces retained force; refused zero releases and latches without auxiliaries; explicit retry only.\n";
 }

@@ -678,7 +678,20 @@ namespace FFB
         initialized = true;
         if (ConsumerLifecycle::Runtime().Current() != ConsumerLifecycle::Gate::Phase::Running ||
             !ConsumerLifecycle::ReadyForActuator(hwnd)) return false;
-		ffb.StartEffect();
+		// Start through an accepted neutral setter, never by replaying whatever
+		// parameters a retained native effect may hold. A refused zero is an
+		// initialization failure; do not create auxiliary effects or retry every
+		// game tick. Refresh/selection is the explicit retry path.
+		if (!ffb.SetDeviceForcesXY(0, 0))
+		{
+			ffb.FreeDirectInput();
+			initialized = false;
+			periodicsActive = false;
+			slotRoadTexture = slotTireSlip = -1;
+			prevConstantLevel = prevStructLevel = 0;
+			deviceError = "Wheel refused neutral startup; output released. Check the wheel, then Refresh devices";
+			return false;
+		}
 
 		// Hardware periodics for road texture and tyre slip. -1 from either means
 		// the driver exposes no periodic effects, and the constant-force synthesis

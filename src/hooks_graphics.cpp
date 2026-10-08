@@ -403,8 +403,15 @@ class WindowedBorderless : public Hook
 	static void destination(safetyhook::Context& ctx)
 	{
 		HWND window = HWND(ctx.ebp);
-		SetWindowPos(window, 0,
-			Settings::WindowPositionX, Settings::WindowPositionY, 
+		int x = Settings::WindowPositionX, y = Settings::WindowPositionY;
+		// [Triple] Screens = Separate monitors (hooks_misc.cpp): the span's corner, while the resolution is still the span.
+		if (Settings::TripleSpanActive && Game::screen_resolution->x == Settings::TripleSpanWidth &&
+			Game::screen_resolution->y == Settings::TripleSpanHeight)
+		{
+			x = Settings::TripleSpanLeft;
+			y = Settings::TripleSpanTop;
+		}
+		SetWindowPos(window, 0, x, y,
 			Game::screen_resolution->x, Game::screen_resolution->y,
 			0x40);
 	}

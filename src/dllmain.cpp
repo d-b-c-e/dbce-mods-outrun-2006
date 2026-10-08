@@ -71,6 +71,7 @@ namespace Settings
 		spdlog::info(" - WindowedBorderless: {}", WindowedBorderless);
 		spdlog::info(" - WindowPosition: {}x{}", WindowPositionX, WindowPositionY);
 		spdlog::info(" - WindowedHideMouseCursor: {}", WindowedHideMouseCursor);
+		spdlog::info(" - TripleScreens: {}", TripleScreens == 2 ? "Separate monitors" : TripleScreens == 0 ? "Off" : "Surround");
 		spdlog::info(" - DisableDPIScaling: {}", DisableDPIScaling);
 		spdlog::info(" - AutoDetectResolution: {}", AutoDetectResolution);
 
@@ -204,6 +205,12 @@ namespace Settings
 		WindowedHideMouseCursor = ini.Get("Window", "WindowedHideMouseCursor", WindowedHideMouseCursor);
 		DisableDPIScaling = ini.Get("Window", "DisableDPIScaling", DisableDPIScaling);
 		AutoDetectResolution = ini.Get("Window", "AutoDetectResolution", AutoDetectResolution);
+		{
+			std::string screens = TripleScreens == 2 ? "Separate monitors" : TripleScreens == 0 ? "Off" : "Surround";
+			screens = ini.Get("Triple", "Screens", screens);
+			TripleScreens = (_stricmp(screens.c_str(), "Separate monitors") == 0 || _stricmp(screens.c_str(), "Separate") == 0) ? 2
+				: _stricmp(screens.c_str(), "Off") == 0 ? 0 : 1;
+		}
 
 		AllowHorn = ini.Get("Audio", "AllowHorn", AllowHorn);
 		AllowWAV = ini.Get("Audio", "AllowWAV", AllowWAV);

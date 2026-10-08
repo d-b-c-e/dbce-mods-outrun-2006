@@ -5,6 +5,8 @@
 #include "plugin.hpp"
 #include "game_addrs.hpp"
 #include <random>
+#include <algorithm>
+#include <vector>
 #include <miniupnpc.h>
 #include <upnpcommands.h>
 #include <WinSock2.h>
@@ -916,6 +918,32 @@ public:
 };
 CommandLineArguments CommandLineArguments::instance;
 
+// The rectangle over exactly three monitors of equal size side by side with no gap ("Sim Racing"); false for any other
+// layout, including Surround, which Windows reports as one display.
+static BOOL CALLBACK CollectMonitor(HMONITOR, HDC, LPRECT rc, LPARAM lp)
+{
+	auto* list = reinterpret_cast<std::vector<RECT>*>(lp);
+	list->push_back(*rc);
+	return list->size() <= 4;
+}
+
+static bool SeparateMonitorSpan(RECT& out)
+{
+	std::vector<RECT> r;
+	if (!EnumDisplayMonitors(nullptr, nullptr, CollectMonitor, reinterpret_cast<LPARAM>(&r)) || r.size() != 3)
+		return false;
+	std::sort(r.begin(), r.end(), [](const RECT& a, const RECT& b) { return a.left < b.left; });
+	for (size_t i = 0; i < r.size(); i++)
+	{
+		if (r[i].top != r[0].top || r[i].bottom != r[0].bottom || r[i].right - r[i].left != r[0].right - r[0].left)
+			return false;
+		if (i && r[i].left != r[i - 1].right)
+			return false;
+	}
+	out = { r[0].left, r[0].top, r[2].right, r[0].bottom };
+	return true;
+}
+
 class GameDefaultConfigOverride : public Hook
 {
 public:
@@ -946,6 +974,28 @@ public:
 			int height = GetSystemMetrics(SM_CYSCREEN);
 			if (width < 640 || height < 480)
 				return false; // bail out if resolution is less than the default
+
+			// [Triple] Screens = Separate monitors: the span of three equal side-by-side monitors instead. The borderless
+			// window is placed at the span's corner (WindowedBorderless) only while the resolution is still the span,
+			// so an outrun2006.ini with its own resolution keeps the configured position.
+			if (Settings::TripleScreens == 2)
+			{
+				RECT span{};
+				if (Settings::WindowedBorderless && SeparateMonitorSpan(span))
+				{
+					width = span.right - span.left;
+					height = span.bottom - span.top;
+					Settings::TripleSpanActive = true;
+					Settings::TripleSpanLeft = span.left;
+					Settings::TripleSpanTop = span.top;
+					Settings::TripleSpanWidth = width;
+					Settings::TripleSpanHeight = height;
+					spdlog::info("TripleScreens: separate monitors, one borderless window {}x{} at ({},{})", width, height, span.left, span.top);
+				}
+				else
+					spdlog::info("TripleScreens: separate monitors requested, but {}; the window stays on the primary monitor",
+						Settings::WindowedBorderless ? "the desktop is not three equal side-by-side monitors" : "WindowedBorderless is off");
+			}
 
 			Game::screen_resolution->x = width;
 			Game::screen_resolution->y = height;

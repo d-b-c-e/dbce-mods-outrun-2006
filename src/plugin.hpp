@@ -92,6 +92,14 @@ namespace Settings
 	inline bool DisableDPIScaling = true;
 	inline bool AutoDetectResolution = true;
 
+	// [Triple] Screens (STD-022): 0 Off, 1 Surround (default: the window as before, which already goes wide on a
+	// Surround desktop), 2 Separate monitors (one borderless window over three equal side-by-side monitors; planar
+	// like Surround, not angle-correct). Separate monitors needs AutoDetectResolution (no outrun2006.ini).
+	inline int TripleScreens = 1;
+	// Runtime, not read from the INI: the span chosen at start-up, used for the borderless window's position.
+	inline bool TripleSpanActive = false;
+	inline long TripleSpanLeft = 0, TripleSpanTop = 0, TripleSpanWidth = 0, TripleSpanHeight = 0;
+
 	inline bool AllowHorn = true;
 	inline bool AllowWAV = true;
 	inline bool AllowFLAC = true;

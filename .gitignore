@@ -38,3 +38,6 @@ rel/*
 # pins a BUILT version (lib/toolkit/VERSION) rather than referencing the toolkit
 # repo, so a toolkit change never reaches the game without a diffable bump.
 !lib/toolkit/native/**/*.dll
+
+# Python test caches
+__pycache__/

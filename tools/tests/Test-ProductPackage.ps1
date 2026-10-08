@@ -7,6 +7,7 @@ $runtime = Join-Path $fixture 'synthetic-runtime'
 $out = Join-Path $fixture 'package'
 New-Item -ItemType Directory -Path $runtime -Force | Out-Null
 foreach ($name in 'dinput8.dll','WheelFfb.dll','force-profiles.ini') { [IO.File]::WriteAllText((Join-Path $runtime $name), "synthetic $name") }
+Copy-Item -LiteralPath (Join-Path $root 'lib/toolkit/native/x86/WheelFfb.dll') -Destination (Join-Path $runtime 'WheelFfb.dll')
 $files = @(Get-ChildItem -LiteralPath $runtime -File | ForEach-Object { @{name=$_.Name;sha256=(Get-FileHash -LiteralPath $_.FullName).Hash.ToLowerInvariant()} })
 @{schemaVersion=1;architecture='x86';sourceDirty=$false;sourceCommit='synthetic-runtime';runtimeSourceCommit='synthetic-runtime';baselineToolkit='v0.8.0';nativeToolkitOverride='v0.13.0';nativeComponent='0.6.0';files=$files} | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $runtime 'package-manifest.json')
 & (Join-Path $root 'tools/Package-WheelSettings.ps1') -RuntimePackageDirectory $runtime -OutputDirectory $out -ReviewOnly | Out-Null
@@ -38,7 +39,7 @@ if ($index.legalClearance -or $manifest.distributionReady -or @($index.distribut
 if (($index.distributionBlockers -join ' ') -match 'upstream.*unresolved|DirectX.*needs review') { throw 'Resolved factual DirectX gate retained' }
 if (($index.distributionBlockers -join ' ') -notmatch 'independent consumer integration review' -or ($index.distributionBlockers -join ' ') -notmatch 'Physical driving') { throw 'Acceptance or shutdown integration gate lost' }
 $native = Get-Content -LiteralPath (Join-Path $out 'provenance/NATIVE-PROVENANCE.json') -Raw | ConvertFrom-Json
-if ($native.sourceCommit -ne 'f8f0619b5588f2d11b44f4becd4198775d4a8bcf' -or $native.exportCount -ne 41 -or $native.nativeVersion -ne '0.6.0' -or $native.buildEvidence.generalBitReproducibilityProven) { throw 'Matched native source/ABI provenance lost or overstated' }
+if ($native.sourceCommit -ne '50ba139bcaee14aee080abe438d6beec4f6a2b47' -or $native.exportCount -ne 41 -or $native.nativeVersion -ne '0.6.0' -or $native.buildEvidence.generalBitReproducibilityProven) { throw 'Matched native source/ABI provenance lost or overstated' }
 if ($native.files[1].sha256 -ne (Get-FileHash -LiteralPath (Join-Path $root 'lib/toolkit/native/x86/WheelFfb.dll')).Hash.ToLowerInvariant()) { throw 'Native provenance does not match vendored bytes' }
 if ($directx.provenance.status -ne 'verified content match; original importer checkout not claimed' -or $directx.provenance.licenseReceipt.byteIdentical -or $directx.provenance.licenseReceipt.retainedBytes -ne 1074) { throw 'DirectX content-match or license-normalization receipt lost' }
 $defaultResult = @(& (Join-Path $root 'tools/Package-WheelSettings.ps1') -RuntimePackageDirectory $runtime -ReviewOnly)
@@ -49,4 +50,19 @@ if ($defaultManifest.runtimeSourceCommit -ne 'synthetic-runtime') { throw 'Defau
 $legacyOutput = Join-Path $fixture 'wheel-settings-explicit historical path'
 & (Join-Path $root 'tools/Package-WheelSettings.ps1') -RuntimePackageDirectory $runtime -OutputDirectory $legacyOutput -ReviewOnly | Out-Null
 if (-not (Test-Path -LiteralPath ($legacyOutput+'.zip'))) { throw 'Explicit historical output path was renamed' }
-Write-Host "PASS: descriptor, licensing and setup payload hashes; missing-feature flags; runtime identity; immutable package. Synthetic DLL text only. Evidence: $fixture"
+# A self-consistent frozen inventory must still agree with the native provenance
+# which packaging is about to ship. Never relabel stale native bytes as current.
+[IO.File]::WriteAllText((Join-Path $runtime 'WheelFfb.dll'), 'stale native fixture')
+$frozen = Get-Content (Join-Path $runtime 'package-manifest.json') -Raw | ConvertFrom-Json
+($frozen.files | Where-Object name -eq 'WheelFfb.dll').sha256 = (Get-FileHash (Join-Path $runtime 'WheelFfb.dll')).Hash.ToLowerInvariant()
+$frozen | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $runtime 'package-manifest.json')
+foreach ($mode in 'frozen','build') {
+    $refusedOut = Join-Path $fixture ('stale-native-' + $mode)
+    $failed = $false
+    try {
+        if ($mode -eq 'frozen') { & (Join-Path $root 'tools/Package-WheelSettings.ps1') -RuntimePackageDirectory $runtime -OutputDirectory $refusedOut -ReviewOnly | Out-Null }
+        else { & (Join-Path $root 'tools/Package-WheelSettings.ps1') -RuntimeBuildDirectory $runtime -OutputDirectory $refusedOut -ReviewOnly | Out-Null }
+    } catch { $failed = $_.Exception.Message -like 'Runtime WheelFfb.dll differs from native source provenance*' }
+    if (-not $failed -or (Test-Path -LiteralPath $refusedOut)) { throw "Stale native $mode was packaged or changed the target" }
+}
+Write-Host "PASS: descriptor, licensing/setup hashes, missing-feature flags, runtime identity, immutable package, stale native build/frozen refusal. Fake proxy; real native copied but never loaded. Evidence: $fixture"

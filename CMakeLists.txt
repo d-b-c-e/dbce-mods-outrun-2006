@@ -420,6 +420,8 @@ set(CMKR_TARGET outrun2006tweaks)
 # vendored under lib/toolkit and loaded at runtime from beside dinput8.dll. Copy
 # it next to the built DLL so deploying the mod stays "copy one folder": a
 # missing WheelFfb.dll silently costs all force feedback.
+set_property(TARGET outrun2006tweaks APPEND PROPERTY LINK_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/lib/toolkit/native/x86/WheelFfb.dll")
 add_custom_command(TARGET outrun2006tweaks POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_if_different
 		"${CMAKE_CURRENT_SOURCE_DIR}/lib/toolkit/native/x86/WheelFfb.dll"

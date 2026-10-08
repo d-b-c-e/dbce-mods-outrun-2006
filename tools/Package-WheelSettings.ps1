@@ -26,6 +26,12 @@ if ($RuntimePackageDirectory) {
 $noticeIndex = Assert-ThirdPartyNotices $root -ForDistribution:(-not $ReviewOnly)
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $root ('build/packages/dbce-mods-outrun-2006-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')) }
 if (Test-Path -LiteralPath $OutputDirectory) { throw 'Choose a new package directory; existing packages are immutable.' }
+$nativeProvenance = Get-Content -LiteralPath (Join-Path $root 'lib/toolkit/NATIVE-PROVENANCE.json') -Raw | ConvertFrom-Json
+$nativeEntry = @($nativeProvenance.files | Where-Object path -eq 'native/x86/WheelFfb.dll')
+if ($nativeEntry.Count -ne 1 -or
+    (Get-FileHash -LiteralPath (Join-Path $runtimeDirectory 'WheelFfb.dll')).Hash -ine $nativeEntry[0].sha256) {
+    throw 'Runtime WheelFfb.dll differs from native source provenance; rebuild before packaging.'
+}
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 $out = (Resolve-Path -LiteralPath $OutputDirectory).Path
 foreach ($name in 'dinput8.dll','WheelFfb.dll','force-profiles.ini') { Copy-Item -LiteralPath (Join-Path $runtimeDirectory $name) -Destination $out }

@@ -49,7 +49,22 @@ try {
     & $exe summary (Join-Path $sourceRun 'corrupt.osig') $declared 2>&1 | Out-Null;if($LASTEXITCODE -ne 2){throw 'Corrupt recording must refuse summary'}
     $truncated=Join-Path $out 'truncated.osig';$bytes=[IO.File]::ReadAllBytes($recording);[IO.File]::WriteAllBytes($truncated,$bytes[0..($bytes.Length-2)])
     & $exe summary $truncated $declared 2>&1 | Out-Null;if($LASTEXITCODE -ne 2){throw 'Truncation must refuse summary'}
-    $catalogFiles=@('synthetic-input.csv','synthetic-recording.osig','metric-definitions.json','command-summary.json') | ForEach-Object {
+    # Reuse the actual muted Update fixture's 360-row V3 capture. V2 golden bytes
+    # stay unchanged; V3 must not be labelled V2 or mistaken for native admission.
+    $muted=Join-Path $sourceRun ('muted-legacy/Dbce/StagePlayback/outrun-force/'+('b'*32)+'/signals.osig')
+    $mutedLines=@(& $exe summary $muted ('a'*40));if($LASTEXITCODE -ne 0){throw 'V3 production-linked summary failed'}
+    $mutedJson=Join-Path $out 'software-command-summary.json'
+    [IO.File]::WriteAllText($mutedJson,($mutedLines -join "`n")+"`n",[Text.UTF8Encoding]::new($false))
+    $mutedResult=Get-Content $mutedJson -Raw|ConvertFrom-Json
+    if($mutedResult.recording_format -cne 'experimental-DBCEORS3-v3' -or $mutedResult.frame_count -ne 360 -or
+       $mutedResult.recording_sha256 -cne (Get-FileHash $muted).Hash.ToLowerInvariant() -or
+       $mutedResult.software_capture.admission -cne 'virtual' -or $mutedResult.software_capture.native_loaded -or
+       $mutedResult.software_capture.speed_units -cne 'raw-field-1c4-unqualified' -or
+       $mutedResult.software_capture.last_game_update -le $mutedResult.software_capture.first_game_update -or
+       $mutedResult.constant.nonzero_requests -le 0 -or $mutedResult.periodic.request_count -ne 0){throw 'V3 format, identity, context or request contract lost'}
+    if($result.PSObject.Properties.Name -contains 'software_capture'){throw 'V2 falsely labelled as software capture'}
+    Copy-Item -LiteralPath $muted -Destination (Join-Path $out 'software-recording.osig')
+    $catalogFiles=@('synthetic-input.csv','synthetic-recording.osig','metric-definitions.json','command-summary.json','software-recording.osig','software-command-summary.json') | ForEach-Object {
         $path=Join-Path $out $_;[ordered]@{name=$_;bytes=(Get-Item -LiteralPath $path).Length;sha256=(Get-FileHash -LiteralPath $path).Hash.ToLowerInvariant()}
     }
     $sourceFiles=@('src/hooks_dinputffb.cpp','src/ffb_calculation.inl','src/signal_recording.inl','src/signal_recording_codec.hpp','tools/tests/signal_calculation_fixture.cpp','tools/tests/signal_recording_fixture.cpp','tools/tests/signal_command_summary.cpp','tools/tests/Test-CommandSummary.ps1','tools/tests/data/command-metric-definitions-v1.json') | ForEach-Object {

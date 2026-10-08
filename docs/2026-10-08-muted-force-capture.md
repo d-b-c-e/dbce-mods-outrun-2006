@@ -136,3 +136,19 @@ replay result and restoration receipt are under
 The earlier intermittent menu hang remains open. This successful normal exit
 does not diagnose it. Gameplay pose ownership/writing, speed units, original
 periodic-route capture and physical force normalization remain unqualified.
+
+The existing offline `command-summary.exe` now labels V3 explicitly while keeping
+the V2 golden result byte-identical. It strictly replays before producing any
+statistics. The new fixture reuses the actual muted producer's 360-row case and
+checks format, hash, context, virtual admission and absence of periodic requests.
+No native/runtime change is needed for this summary tool.
+
+On the original live case: one checkpoint, no tuning changes, game updates
+28,560–32,160 and 59,985 ms of recorded tick span. There are 2,987 constant
+requests, 2,975 nonzero, ranging from −1,983 to +738; none reaches the 10,000
+request bound. These are pre-master-strength calculation requests, not a
+post-encoding force envelope or physical torque. Sparse duplicate suppression
+means request counts cannot be interpreted as force duty. The shared Art
+speed-band analyzer remains inappropriate until the raw speed mapping and final
+command stream are qualified. Private result: `force-command-summary.json`
+beside the capture evidence.

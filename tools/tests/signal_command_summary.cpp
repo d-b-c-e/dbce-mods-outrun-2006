@@ -60,12 +60,18 @@ static void WriteSummary(const R::Session& s,const CommandSummary& m) {
     std::cout.imbue(std::locale::classic());std::cout<<std::setprecision(17);
     std::cout<<"{\n  \"schema\": \"dbce.outrun2006.command-summary\",\n  \"version\": 1,\n"
         "  \"metric_definitions\": \"dbce.outrun2006.command-metrics@1\",\n"
-        "  \"recording_format\": \"experimental-DBCEORR2-v2\",\n"
+        "  \"recording_format\": \""<<(s.softwareOnly?"experimental-DBCEORS3-v3":"experimental-DBCEORR2-v2")<<"\",\n"
         "  \"recording_sha256\": \""<<Sha256(R::Encode(s))<<"\",\n"
         "  \"declared_calculation_revision\": \""<<DeclaredRevision(s)<<"\",\n"
         "  \"declared_revision_authenticated\": false,\n  \"production_recalculation_verified\": true,\n"
-        "  \"physical_output\": false,\n  \"domain\": \"legacy-calculation-requests-before-master-strength-and-native-encoding\",\n"
-        "  \"frame_count\": "<<m.frames<<",\n  \"checkpoint_count\": "<<m.checkpoints<<",\n"
+        "  \"physical_output\": false,\n  \"domain\": \"legacy-calculation-requests-before-master-strength-and-native-encoding\",\n";
+    if(s.softwareOnly)std::cout<<
+        "  \"software_capture\": {\n    \"route\": \"constant-fallback-software\",\n"
+        "    \"admission\": \"virtual\",\n    \"native_loaded\": false,\n"
+        "    \"speed_units\": \"raw-field-1c4-unqualified\",\n"
+        "    \"first_game_update\": "<<s.frames[0].context[0]<<",\n"
+        "    \"last_game_update\": "<<s.frames[s.count-1].context[0]<<"\n  },\n";
+    std::cout<<"  \"frame_count\": "<<m.frames<<",\n  \"checkpoint_count\": "<<m.checkpoints<<",\n"
         "  \"configuration_change_count\": "<<m.configChanges<<",\n  \"sample_tick_span_ms\": "<<m.tickSpan<<",\n"
         "  \"fixed60_calculation_step_sum_seconds\": "<<double(m.frames)/60.0<<",\n  \"constant\": {\n"
         "    \"units\": \"pre-actuator-native-range-request\",\n    \"request_count\": "<<m.constants<<",\n"

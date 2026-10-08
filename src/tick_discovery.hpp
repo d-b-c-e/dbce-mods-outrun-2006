@@ -15,7 +15,7 @@
 #include <vector>
 
 namespace TickDiscovery {
-inline constexpr char Schema[] = "outrun2006.tick-discovery@1";
+inline constexpr char Schema[] = "outrun2006.tick-discovery@2";
 inline constexpr int MinSeconds = 10, MaxSeconds = 120, UpdatesPerSecond = 60;
 inline constexpr long long MaxLeadSeconds = 600; // a request must expire within ten minutes of being read
 inline constexpr std::size_t MaxRequestBytes = 1024, Headroom = 1024;
@@ -68,6 +68,23 @@ inline std::string ParseRequest(std::string_view text, long long nowUnix, std::s
 }
 
 enum class Phase { Pre, Post };
+// Camera snapshots share the car hook's boundary, not a rendered-frame boundary.
+// Matrix names are offsets, not an inferred view/projection contract.
+struct CameraObservation {
+    bool observed = false;
+    int mode = 0;
+    float fov = 0, znear = 0, zfar = 0, modeTimer = 0;
+    std::array<float, 3> position{}, look{}, angle{};
+    std::array<std::array<float, 16>, 7> matrices{}; // 140, 180, 1c0, 200, 240, 280, 2c0
+};
+inline constexpr const char* CameraMatrixNames[] = { "camera_140", "camera_180", "camera_1c0", "camera_200", "camera_240", "camera_280", "camera_2c0" };
+inline bool CameraFinite(const CameraObservation& c) {
+    if (!c.observed) return false;
+    for (float v : { c.fov, c.znear, c.zfar, c.modeTimer }) if (!std::isfinite(v)) return false;
+    for (const auto* xyz : { &c.position, &c.look, &c.angle }) for (float v : *xyz) if (!std::isfinite(v)) return false;
+    for (const auto& m : c.matrices) for (float v : m) if (!std::isfinite(v)) return false;
+    return true;
+}
 // Named values read around GamePlCar_Ctrl. `car` is used only for the pre/post identity check and is never written.
 struct Observation {
     std::uintptr_t car = 0;
@@ -80,6 +97,7 @@ struct Observation {
     float speed = 0;
     std::array<float, 3> position{}, velocity{};
     std::array<float, 16> m70{}, mB0{}, mF0{};
+    CameraObservation camera;
 };
 // `instance` counts local car objects seen in this window (0 = the first); the window ends at the first change.
 struct Row { Phase phase; std::uint32_t update; std::uint32_t instance; Observation o; };
@@ -172,8 +190,13 @@ inline std::string Tsv(const Session& s) {
         "position_x\tposition_y\tposition_z\tspd_mb_x\tspd_mb_y\tspd_mb_z";
     for (const char* m : { "matrix_70", "matrix_b0", "matrix_f0" })
         for (int r = 1; r <= 4; ++r) for (int c = 1; c <= 4; ++c) { out += '\t'; out += m; out += '_'; out += char('0' + r); out += char('0' + c); }
+    out += "\tcamera_observed\tcamera_finite\tcamera_mode\tcamera_fov_ac\tcamera_znear_bc\tcamera_zfar_c0\tcamera_timer_364";
+    for (const char* xyz : { "camera_pos_f8", "camera_look_104", "camera_angle_128" })
+        for (char axis : { 'x', 'y', 'z' }) { out += '\t'; out += xyz; out += '_'; out += axis; }
+    for (const char* m : CameraMatrixNames)
+        for (int r = 1; r <= 4; ++r) for (int c = 1; c <= 4; ++c) { out += '\t'; out += m; out += '_'; out += char('0' + r); out += char('0' + c); }
     out += '\n';
-    out.reserve(out.size() + s.rows.size() * 700);
+    out.reserve(out.size() + s.rows.size() * 2200);
     for (const Row& row : s.rows) {
         const Observation& o = row.o;
         out += row.phase == Phase::Pre ? "pre" : "post";
@@ -185,6 +208,11 @@ inline std::string Tsv(const Session& s) {
         for (float v : o.position) Append(out, "\t%.9g", v);
         for (float v : o.velocity) Append(out, "\t%.9g", v);
         for (const auto* m : { &o.m70, &o.mB0, &o.mF0 }) for (float v : *m) Append(out, "\t%.9g", v);
+        const auto& c = o.camera;
+        for (double v : { double(c.observed), double(CameraFinite(c)), double(c.mode), double(c.fov), double(c.znear), double(c.zfar), double(c.modeTimer) })
+            Append(out, "\t%.9g", v);
+        for (const auto* xyz : { &c.position, &c.look, &c.angle }) for (float v : *xyz) Append(out, "\t%.9g", v);
+        for (const auto& m : c.matrices) for (float v : m) Append(out, "\t%.9g", v);
         out += '\n';
     }
     return out;
@@ -201,6 +229,7 @@ inline std::string OutcomeText(const Session& s, std::string_view outcome, std::
     line("unmatchedPre", s.UnmatchedPre() ? "true" : "false"); line("dataFile", dataFile); line("hooks", hooks);
     line("evidence", "discovery"); line("replayable", "false"); line("writer", "none");
     line("output", "unchanged (no force, input, telemetry or display change)");
+    line("cameraBoundary", "car pre/post; not render; matrix roles and angle/FOV units unqualified");
     return out;
 }
 

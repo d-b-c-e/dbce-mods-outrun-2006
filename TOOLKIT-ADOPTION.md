@@ -33,3 +33,11 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-023 | Frame-rate readout in settings and log | unchecked | Existing framerate hooks have not been audited for the standard 10 s mean/1% low/worst summary and 30 s log. |
 | STD-024 | Optional on-screen frame-rate counter | unchecked | Saved default-off counter, centre-screen placement and render cost have not been audited. |
 | STD-025 | One shared force model for tyre games | pending | Current legacy custom model remains. Research available physical inputs before an AxleForceCurve adapter or a documented arcade exception; named pose fields do not establish tyre-force units. |
+| STD-026 | Player-facing tuning is deliberate | unchecked | Existing Simple/Advanced tuning needs review against the current standard before adding controls. |
+| STD-027 | Independent steering and crash strength | pending | Legacy model composition still needs an explicit split and versioned replay contract; no label-only adoption. |
+| STD-028 | Complete owner registry snapshots | n/a | Current native-game checks preserve INI/save files and do not snapshot or delete a Unity registry leaf. Any future registry use must use the shared raw helper. |
+
+October 8 discovery source adds camera observations to the existing bounded
+window (schema 2, 334 fixture checks and Release build pass). It does not promote
+STD-012/015: no pose writer, producer-preserving mute or projected rendering is
+implemented by this change. See `docs/TICK-DISCOVERY.md`.

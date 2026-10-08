@@ -56,6 +56,37 @@ static void Parsing() {
 }
 
 static Session Started(int seconds = 10) { Session s; Request r{ std::string(32, '2'), seconds, Now + 60 }; Require(s.Begin(r, 0, false), "begin"); return s; }
+static void CameraRows() {
+    auto o = Car();
+    Require(!CameraFinite(o.camera), "unobserved camera is not a measured zero");
+    o.camera.observed = true; o.camera.mode = 2; o.camera.fov = 45;
+    o.camera.znear = 0.25f; o.camera.zfar = 10000; o.camera.modeTimer = 3;
+    o.camera.position = { 10, 20, 30 }; o.camera.look = { 40, 50, 60 }; o.camera.angle = { 70, 80, 90 };
+    for (std::size_t m = 0; m < 7; ++m) for (std::size_t i = 0; i < 16; ++i) o.camera.matrices[m][i] = float(m * 100 + i + 1);
+    Require(CameraFinite(o.camera), "all observed camera values finite");
+    auto s = Started(); s.Observe(Phase::Pre, 0, o); s.Observe(Phase::Post, 0, o);
+    std::istringstream stream(Tsv(s)); std::string header, row;
+    std::getline(stream, header); std::getline(stream, row);
+    auto split = [](const std::string& line) { std::vector<std::string> cells; std::istringstream in(line); std::string v; while (std::getline(in, v, '\t')) cells.push_back(v); return cells; };
+    const auto names = split(header), values = split(row);
+    Require(names.size() == 200 && values.size() == 200, "camera extension has fixed named shape");
+    Require(names[72] == "camera_observed" && values[72] == "1" && values[73] == "1", "observed and finite flags serialized");
+    Require(names[75] == "camera_fov_ac" && values[75] == "45" && values[76] == "0.25", "FOV and near plane preserved without unit conversion");
+    Require(names[79] == "camera_pos_f8_x" && values[79] == "10" && names[87] == "camera_angle_128_z" && values[87] == "90", "position look angles keep boundaries");
+    const char* offsets[] = { "140", "180", "1c0", "200", "240", "280", "2c0" };
+    for (std::size_t m = 0; m < 7; ++m) for (std::size_t i = 0; i < 16; ++i) {
+        const auto column = 88 + m * 16 + i;
+        const auto expected = std::string("camera_") + offsets[m] + "_" + std::to_string(i / 4 + 1) + std::to_string(i % 4 + 1);
+        Require(names[column] == expected && std::stof(values[column]) == o.camera.matrices[m][i], "camera matrix orientation and value round-trip");
+        auto bad = o; bad.camera.matrices[m][i] = std::numeric_limits<float>::quiet_NaN();
+        Require(!CameraFinite(bad.camera) && Finite(bad), "bad camera matrix does not discard qualified car fields");
+    }
+    auto bad = o; bad.camera.fov = std::numeric_limits<float>::infinity();
+    auto partial = Started(); partial.Observe(Phase::Pre, 0, bad); partial.Observe(Phase::Post, 0, bad);
+    Require(partial.failure.empty() && Tsv(partial).find("\t1\t0\t2\tinf\t") != std::string::npos, "invalid camera is explicitly marked and retained, not fatal to car discovery");
+    Require(OutcomeText(s, "observed", "fixture", "fixture", "discovery.tsv").find("schema=outrun2006.tick-discovery@2\n") != std::string::npos,
+        "new schema does not impersonate old car-only evidence");
+}
 static void Ordering() {
     { Session s = Started(); s.Update(1, true); s.Observe(Phase::Pre, 1, Car()); s.Observe(Phase::Post, 1, Car());
       s.Update(2, true); s.Update(3, false); s.Close();
@@ -123,7 +154,7 @@ static void Files(const std::wstring& base) {
             outcome.find("replayable=false\n") != std::string::npos && outcome.find("chainOrder:unobserved") != std::string::npos, "observed outcome");
     Require(Count(tsv, '\n') == 7, "header plus six rows");
     const std::string header = tsv.substr(0, tsv.find('\n')), first = tsv.substr(header.size() + 1, tsv.find('\n', header.size() + 1) - header.size() - 1);
-    Require(Count(header, '\t') == 71 && Count(first, '\t') == 71 && header.rfind("phase\tupdate\tcar_instance\t", 0) == 0, "72 named columns in every row, car instance included");
+    Require(Count(header, '\t') == 199 && Count(first, '\t') == 199 && header.rfind("phase\tupdate\tcar_instance\t", 0) == 0, "200 named columns in every row, original 72 car columns retained");
     Require(first.rfind("pre\t", 0) == 0 && first.find("\t1.5\t2.25\t-3\t") != std::string::npos, "values round-trip as written");
     Require(!Exists(dirA + L"\\discovery.tsv.tmp") && !Exists(dirA + L"\\outcome.txt.tmp"), "no temporary files left");
 
@@ -221,7 +252,7 @@ int main(int argc, char** argv) {
     try {
         if (argc != 2) throw std::runtime_error("usage: tick-discovery <empty temp folder>");
         std::string a(argv[1]);
-        Parsing(); Ordering(); Files(std::wstring(a.begin(), a.end()));
+        Parsing(); Ordering(); CameraRows(); Files(std::wstring(a.begin(), a.end()));
         std::printf("PASS %d tick discovery checks (memory and temp files only; no game, hook or device)\n", checks);
         return 0;
     } catch (const std::exception& e) { std::fprintf(stderr, "FAIL after %d checks: %s\n", checks, e.what()); return 1; }

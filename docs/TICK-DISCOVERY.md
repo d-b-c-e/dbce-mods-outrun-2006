@@ -1,5 +1,30 @@
 # Read-only local-car tick discovery
 
+## October 8 camera extension — source candidate
+
+Schema `outrun2006.tick-discovery@2` appends 128 camera columns to the original
+72 car columns: observed/finite flags, mode, FOV, near/far, transition timer,
+position/look/angle, and the seven matrices at offsets 140 through 2C0. Reads
+use the same exact-build global as the existing z-buffer hook; static offset
+assertions guard the layout. No camera writer, new hook, D3D call or output
+change is introduced. Nothing extra is sampled while discovery is unarmed.
+
+The boundary is still **car pre/post**, not render time. Names retain offsets;
+view/projection roles, angle/FOV units and complete rendered-pose ownership are
+not inferred. Missing/non-finite camera data is explicitly marked and does not
+discard otherwise valid car observations. Consumers must require both flags
+before analyzing the camera values. Old schema-1 evidence stays unchanged.
+
+The x86 production-header fixture passes 334 checks, including every camera
+matrix element's name/order/value and non-finite marking. The Release proxy
+build passes. Not installed or live-qualified yet. A short moving offline
+capture is the next check; native wheel and motion output must remain off.
+The larger bounded buffer reserves about 9 MB at the maximum duration, and TSV
+serialization reserves about 34 MB; actual text size can grow beyond that reserve
+but is still bounded by the row count. Saving remains synchronous and can hitch.
+
+## Previous car-only candidate
+
 STAGE-PLAYBACK step 1. Claude, 2026-10-07. Source and fixtures only: not installed
 or live-tested. Independent review closes all four original findings in 069fe41:
 100 discovery checks, production lifecycle suites and 33 additional fault checks

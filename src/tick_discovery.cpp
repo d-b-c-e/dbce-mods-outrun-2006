@@ -13,6 +13,7 @@
 #include "tick_discovery.hpp"
 #include <cstring>
 #include <ctime>
+#include <cstddef>
 
 namespace TickDiscovery {
 static Controller controller;
@@ -67,6 +68,30 @@ void OnUpdate() {
 
 static void Copy(std::array<float, 16>& out, const D3DMATRIX& m) { std::memcpy(out.data(), &m, sizeof(float) * 16); }
 
+// Same exact-build camera global used by FixZBufferPrecision. No new hook or
+// camera update is introduced: observe the current values at the car boundary.
+static_assert(offsetof(EvWorkCamera, CamFov_AC) == 0xAC);
+static_assert(offsetof(EvWorkCamera, cam_pos_F8) == 0xF8);
+static_assert(offsetof(EvWorkCamera, d3dmatrix140) == 0x140);
+static_assert(offsetof(EvWorkCamera, cam_matrix_1C0) == 0x1C0);
+static_assert(offsetof(EvWorkCamera, d3dmatrix2C0) == 0x2C0);
+static_assert(offsetof(EvWorkCamera, cam_mode_timer_364) == 0x364);
+static CameraObservation Camera() {
+    const auto* camera = Module::exe_ptr<EvWorkCamera>(0x39FE10);
+    CameraObservation c;
+    c.observed = true; c.mode = camera->cam_mode_34A;
+    c.fov = camera->CamFov_AC; c.znear = camera->perspective_znear_BC;
+    c.zfar = camera->perspective_zfar_C0; c.modeTimer = camera->cam_mode_timer_364;
+    c.position = { camera->cam_pos_F8.x, camera->cam_pos_F8.y, camera->cam_pos_F8.z };
+    c.look = { camera->look_pos_104.x, camera->look_pos_104.y, camera->look_pos_104.z };
+    c.angle = { camera->cam_ang_128.x, camera->cam_ang_128.y, camera->cam_ang_128.z };
+    Copy(c.matrices[0], camera->d3dmatrix140); Copy(c.matrices[1], camera->d3dmatrix180);
+    Copy(c.matrices[2], camera->cam_matrix_1C0); Copy(c.matrices[3], camera->d3dmatrix200);
+    Copy(c.matrices[4], camera->d3dmatrix240); Copy(c.matrices[5], camera->d3dmatrix280);
+    Copy(c.matrices[6], camera->d3dmatrix2C0);
+    return c;
+}
+
 void Observe(EVWORK_CAR* car, bool post) {
     if (faulted || !controller.session || !car) return;
     try {
@@ -88,6 +113,7 @@ void Observe(EVWORK_CAR* car, bool post) {
     o.position = { car->position_14.x, car->position_14.y, car->position_14.z };
     o.velocity = { car->spd_mb_20.x, car->spd_mb_20.y, car->spd_mb_20.z };
     Copy(o.m70, car->matrix_70); Copy(o.mB0, car->matrix_B0); Copy(o.mF0, car->matrix_F0);
+    o.camera = Camera();
     controller.Observe(post ? Phase::Post : Phase::Pre, o);
     } catch (...) { Fault(); }
 }

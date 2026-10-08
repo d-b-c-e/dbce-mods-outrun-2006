@@ -7,7 +7,13 @@ setting or native hook changed during this intake. DRIVE's completed diagnostic
 allowed this follow-up to begin; its Unity adapter cannot qualify these native
 x86 hooks.
 
-**October 7 checkpoint:** reviewed private runtime 069fe41 is now installed.
+**October 8 checkpoint:** camera-discovery runtime 6ccd7dd is installed. A
+moving offline window validates 3,310 ordered pairs with every camera row finite;
+car changes occur inside the car hook and camera changes outside it. Read
+[the moving-window analysis](2026-10-08-moving-camera-discovery.md). Original
+force capture, complete pose/camera ownership and gameplay playback remain open.
+
+**Historical October 7 checkpoint:** reviewed private runtime 069fe41 was installed.
 Claude's stationary Palm Beach discovery and an independent readback confirm
 5,878 rows / 2,939 ordered pre/post pairs, matching package/runtime hashes and
 eight restored owner files. See [the current evidence and limits](2026-10-07-live-discovery-readback.md).

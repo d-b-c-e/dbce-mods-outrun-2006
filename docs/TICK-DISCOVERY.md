@@ -23,6 +23,22 @@ The larger bounded buffer reserves about 9 MB at the maximum duration, and TSV
 serialization reserves about 34 MB; actual text size can grow beyond that reserve
 but is still bounded by the row count. Saving remains synchronous and can hitch.
 
+The offline reader now handles both schemas without changing their source files:
+
+```powershell
+py -3 tools/analyze_tick_discovery.py <discovery-result-folder> --output <new-report.json>
+py -3 tools/tests/test_discovery_analysis.py
+```
+
+It requires an `observed` completion, exact schema columns and complete ordered
+pre/post pairs. It pins the outcome/data hashes and reports value changes inside
+the car callback and between successive callbacks separately. Camera analysis
+requires both observed and finite flags; unavailable cameras are excluded rather
+than filled with zeros. Eight boundary tests pass. Reading the archived October 7
+case reproduces all five published change counts (2,700 / 2,700 / 2,700 / 2,901 /
+1,898 inside, zero between), with 2,939 pairs and no camera claim. Matrix roles,
+world units, exclusive pose ownership and rendered timing remain unqualified.
+
 ## Previous car-only candidate
 
 STAGE-PLAYBACK step 1. Claude, 2026-10-07. Source and fixtures only: not installed

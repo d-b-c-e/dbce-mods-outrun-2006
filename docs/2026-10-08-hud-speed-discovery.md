@@ -12,7 +12,7 @@ found the HUD path:
 
 - At `0x4BCF10`, the game chooses a display multiplier of 1.0 or approximately
   0.6215 from its units setting. At `0x4BCF64` it multiplies that value by
-  `EVWORK_CAR + 0x1F8`, converts to an integer and formats `%03d`.
+  the float at `EVWORK_CAR + 0x1F8`, converts to an integer and formats `%03d`.
 - At `0x4A140F`, the car update stores its computed speed in `+0x1F8`: the raw
   `+0x1C4` input times a car-parameter factor at `+0x2438` times 216.72. A
   conditional low-speed correction/clamp can update that result afterward.

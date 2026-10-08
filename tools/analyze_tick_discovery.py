@@ -22,6 +22,7 @@ FORCE_FIELDS = ("force_inputs_observed force_inputs_finite force_output_enabled 
                 "surface_roughness surface_water ffb_lateral_deadzone ffb_grip_loss ffb_wall_impact ffb_road_texture "
                 "ffb_tire_slip ffb_engine_idle ffb_spring_strength ffb_damper_strength ffb_steering_weight "
                 "ffb_weight_transfer ffb_gear_shift ffb_invert ffb_global_strength").split()
+HUD_SPEED_FIELDS = ["hud_speed_observed", "hud_speed_finite", "field_1f8"]
 
 
 def matrix_fields(name):
@@ -35,6 +36,8 @@ def fields(version):
         result += [k for m in CAM_MATRICES for k in matrix_fields(m)]
     if version >= 3:
         result += FORCE_FIELDS
+    if version >= 4:
+        result += HUD_SPEED_FIELDS
     return result
 
 
@@ -57,7 +60,7 @@ def analyze(folder):
     outcome_bytes = (folder / "outcome.txt").read_bytes()
     outcome = kv(outcome_bytes.decode("utf-8-sig"))
     schema = outcome.get("schema")
-    if schema not in ("outrun2006.tick-discovery@1", "outrun2006.tick-discovery@2", "outrun2006.tick-discovery@3"):
+    if schema not in tuple(f"outrun2006.tick-discovery@{v}" for v in (1, 2, 3, 4)):
         raise ValueError("unsupported discovery schema")
     if outcome.get("outcome") != "observed" or outcome.get("unmatchedPre") != "false":
         raise ValueError("only a completed observed window with no unmatched pre is accepted")
@@ -93,6 +96,11 @@ def analyze(folder):
             if row["force_inputs_finite"] and (not row["force_inputs_observed"] or
                                                not all(math.isfinite(row[k]) for k in FORCE_FIELDS[5:])):
                 raise ValueError("force finite flag disagrees with values")
+        if version >= 4:
+            if any(row[k] not in (0, 1) for k in HUD_SPEED_FIELDS[:2]):
+                raise ValueError("invalid HUD speed flags")
+            if row["hud_speed_finite"] and (not row["hud_speed_observed"] or not math.isfinite(row["field_1f8"])):
+                raise ValueError("HUD speed finite flag disagrees with value")
         if row["update"] != int(row["update"]) or row["micros"] < 0:
             raise ValueError("invalid update/time")
         if rows and row["micros"] < rows[-1]["micros"]:
@@ -130,6 +138,7 @@ def analyze(folder):
     if version >= 2:
         ranges.update({k: summary([r[k] for r in rows if r["camera_observed"] and r["camera_finite"]]) for k in CAM_SCALARS[2:]})
     force_pre = [r for r in rows[::2] if r.get("force_inputs_observed") and r.get("force_inputs_finite")]
+    hud_rows = [r for r in rows if r.get("hud_speed_observed") and r.get("hud_speed_finite")]
     return {"schema": "outrun2006.discovery-analysis@1", "inputSchema": schema,
             "outcomeSha256": hashlib.sha256(outcome_bytes).hexdigest(), "dataFile": name,
             "dataSha256": hashlib.sha256(data).hexdigest(), "rows": len(rows), "pairs": len(pairs),
@@ -140,6 +149,9 @@ def analyze(folder):
             "forceInputPreRows": len(force_pre),
             "forceInputRanges": {k: summary([r[k] for r in force_pre]) for k in FORCE_FIELDS[5:]} if version >= 3 else {},
             "forceOutputEnabledPreRows": sum(bool(r["force_output_enabled"]) for r in force_pre),
+            "hudSpeedValidRows": len(hud_rows),
+            "hudSpeedBaseRange": summary([r["field_1f8"] for r in hud_rows]),
+            "hudSpeedQualification": "raw HUD base field; live unit/display correlation not inferred",
             "forceQualification": "raw inputs only; no original force calculation, native route, command or calibrated speed",
             "changes": changes, "replayable": False,
             "limits": "Observed value changes only; not exclusive writer ownership, rendered timing, calibrated units or matrix roles."}

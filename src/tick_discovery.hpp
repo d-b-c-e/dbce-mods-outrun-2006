@@ -16,7 +16,7 @@
 #include "force_observation.hpp"
 
 namespace TickDiscovery {
-inline constexpr char Schema[] = "outrun2006.tick-discovery@3";
+inline constexpr char Schema[] = "outrun2006.tick-discovery@4";
 inline constexpr int MinSeconds = 10, MaxSeconds = 120, UpdatesPerSecond = 60;
 inline constexpr long long MaxLeadSeconds = 600; // a request must expire within ten minutes of being read
 inline constexpr std::size_t MaxRequestBytes = 1024, Headroom = 1024;
@@ -100,6 +100,8 @@ struct Observation {
     std::array<float, 16> m70{}, mB0{}, mF0{};
     CameraObservation camera;
     OutRunForceObservation::Sample force;
+    bool hudSpeedObserved = false;
+    float hudSpeedBase = 0; // field_1F8, game HUD input; units awaiting live correlation
 };
 // `instance` counts local car objects seen in this window (0 = the first); the window ends at the first change.
 struct Row { Phase phase; std::uint32_t update; std::uint32_t instance; Observation o; };
@@ -201,6 +203,7 @@ inline std::string Tsv(const Session& s) {
     for (const char* name : OutRunForceObservation::FieldNames) { out += '\t'; out += name; }
     out += "\tsurface_mask_0\tsurface_mask_1\tsurface_mask_2\tsurface_mask_3\tload_coli_type\tsurface_roughness\tsurface_water";
     for (const char* name : OutRunForceObservation::ConfigNames) { out += '\t'; out += name; }
+    out += "\thud_speed_observed\thud_speed_finite\tfield_1f8";
     out += '\n';
     out.reserve(out.size() + s.rows.size() * 2200);
     for (const Row& row : s.rows) {
@@ -226,6 +229,8 @@ inline std::string Tsv(const Session& s) {
         for (auto v : f.surfaceMasks) Append(out, "\t%.17g", double(v));
         for (double v : {double(f.loadColiType), double(f.roughness), double(f.water)}) Append(out, "\t%.17g", v);
         for (double v : f.config) Append(out, "\t%.17g", v);
+        for (double v : {double(o.hudSpeedObserved), double(o.hudSpeedObserved && std::isfinite(o.hudSpeedBase)), double(o.hudSpeedBase)})
+            Append(out, "\t%.9g", v);
         out += '\n';
     }
     return out;
@@ -245,6 +250,7 @@ inline std::string OutcomeText(const Session& s, std::string_view outcome, std::
     line("cameraBoundary", "car pre/post; not render; matrix roles and angle/FOV units unqualified");
     line("forceEvidence", "raw inputs and requested legacy settings only; no calculation, native route or delivered command inferred");
     line("forceBoundary", "pre is before FFB::Update and original car tick; post is after original car tick; output flag is saved enable, not actuator admission");
+    line("hudSpeedEvidence", "field_1f8 feeds the HUD before unit conversion; raw observation, no calibrated speed claim");
     return out;
 }
 

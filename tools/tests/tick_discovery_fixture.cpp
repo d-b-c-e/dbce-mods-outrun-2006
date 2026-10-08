@@ -69,7 +69,7 @@ static void CameraRows() {
     std::getline(stream, header); std::getline(stream, row);
     auto split = [](const std::string& line) { std::vector<std::string> cells; std::istringstream in(line); std::string v; while (std::getline(in, v, '\t')) cells.push_back(v); return cells; };
     const auto names = split(header), values = split(row);
-    Require(names.size() == 234 && values.size() == 234, "camera and force extension has fixed named shape");
+    Require(names.size() == 237 && values.size() == 237, "camera and force extension has fixed named shape");
     Require(names[72] == "camera_observed" && values[72] == "1" && values[73] == "1", "observed and finite flags serialized");
     Require(names[75] == "camera_fov_ac" && values[75] == "45" && values[76] == "0.25", "FOV and near plane preserved without unit conversion");
     Require(names[79] == "camera_pos_f8_x" && values[79] == "10" && names[87] == "camera_angle_128_z" && values[87] == "90", "position look angles keep boundaries");
@@ -84,7 +84,7 @@ static void CameraRows() {
     auto bad = o; bad.camera.fov = std::numeric_limits<float>::infinity();
     auto partial = Started(); partial.Observe(Phase::Pre, 0, bad); partial.Observe(Phase::Post, 0, bad);
     Require(partial.failure.empty() && Tsv(partial).find("\t1\t0\t2\tinf\t") != std::string::npos, "invalid camera is explicitly marked and retained, not fatal to car discovery");
-    Require(OutcomeText(s, "observed", "fixture", "fixture", "discovery.tsv").find("schema=outrun2006.tick-discovery@3\n") != std::string::npos,
+    Require(OutcomeText(s, "observed", "fixture", "fixture", "discovery.tsv").find("schema=outrun2006.tick-discovery@4\n") != std::string::npos,
         "new schema does not impersonate old car-only evidence");
 }
 static void ForceRows() {
@@ -120,7 +120,7 @@ static void ForceRows() {
     std::istringstream hs(header), rs(row);
     while (std::getline(hs, cell, '\t')) names.push_back(cell);
     while (std::getline(rs, cell, '\t')) values.push_back(cell);
-    Require(names.size() == 234 && values.size() == 234, "force row width matches schema");
+    Require(names.size() == 237 && values.size() == 237, "force row width matches schema");
     auto value = [&](const char* name) { auto found = std::find(names.begin(), names.end(), name); Require(found != names.end(), "named force column exists"); return std::stod(values[size_t(found - names.begin())]); };
     Require(value("force_inputs_observed") == 1 && value("force_inputs_finite") == 1 && value("force_output_enabled") == 0,
         "actual off flag is not rewritten as muted enabled output");
@@ -142,6 +142,16 @@ static void ForceRows() {
         "invalid force values are retained with a false finite flag without losing pose discovery");
     Require(OutcomeText(s, "observed", "fixture", "fixture", "discovery.tsv").find("no calculation, native route or delivered command inferred") != std::string::npos,
         "outcome does not claim original force or route");
+}
+static void HudSpeedRows() {
+    auto o=Car();
+    auto row=[&]() { auto s=Started(); s.Observe(Phase::Pre,0,o);s.Observe(Phase::Post,0,o);return Tsv(s); };
+    Require(row().find("hud_speed_observed\thud_speed_finite\tfield_1f8\n")!=std::string::npos,"raw HUD extension named");
+    Require(row().find("\t0\t0\t0\n")!=std::string::npos,"absent HUD speed not measured zero");
+    o.hudSpeedObserved=true;o.hudSpeedBase=123.25f;
+    Require(row().find("\t1\t1\t123.25\n")!=std::string::npos,"HUD speed retains exact raw value");
+    o.hudSpeedBase=std::numeric_limits<float>::quiet_NaN();
+    Require(Finite(o) && row().find("\t1\t0\tnan\n")!=std::string::npos,"invalid HUD speed marked without losing car evidence");
 }
 static void Ordering() {
     { Session s = Started(); s.Update(1, true); s.Observe(Phase::Pre, 1, Car()); s.Observe(Phase::Post, 1, Car());
@@ -210,7 +220,7 @@ static void Files(const std::wstring& base) {
             outcome.find("replayable=false\n") != std::string::npos && outcome.find("chainOrder:unobserved") != std::string::npos, "observed outcome");
     Require(Count(tsv, '\n') == 7, "header plus six rows");
     const std::string header = tsv.substr(0, tsv.find('\n')), first = tsv.substr(header.size() + 1, tsv.find('\n', header.size() + 1) - header.size() - 1);
-    Require(Count(header, '\t') == 233 && Count(first, '\t') == 233 && header.rfind("phase\tupdate\tcar_instance\t", 0) == 0, "234 named columns in every row, original 200 car/camera columns retained");
+    Require(Count(header, '\t') == 236 && Count(first, '\t') == 236 && header.rfind("phase\tupdate\tcar_instance\t", 0) == 0, "237 named columns in every row, original 200 car/camera columns retained");
     Require(first.rfind("pre\t", 0) == 0 && first.find("\t1.5\t2.25\t-3\t") != std::string::npos, "values round-trip as written");
     Require(!Exists(dirA + L"\\discovery.tsv.tmp") && !Exists(dirA + L"\\outcome.txt.tmp"), "no temporary files left");
 
@@ -308,7 +318,7 @@ int main(int argc, char** argv) {
     try {
         if (argc != 2) throw std::runtime_error("usage: tick-discovery <empty temp folder>");
         std::string a(argv[1]);
-        Parsing(); Ordering(); CameraRows(); ForceRows(); Files(std::wstring(a.begin(), a.end()));
+        Parsing(); Ordering(); CameraRows(); ForceRows(); HudSpeedRows(); Files(std::wstring(a.begin(), a.end()));
         std::printf("PASS %d tick discovery checks (memory and temp files only; no game, hook or device)\n", checks);
         return 0;
     } catch (const std::exception& e) { std::fprintf(stderr, "FAIL after %d checks: %s\n", checks, e.what()); return 1; }

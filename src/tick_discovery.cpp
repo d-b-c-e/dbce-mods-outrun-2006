@@ -79,6 +79,7 @@ static_assert(offsetof(EvWorkCamera, d3dmatrix140) == 0x140);
 static_assert(offsetof(EvWorkCamera, cam_matrix_1C0) == 0x1C0);
 static_assert(offsetof(EvWorkCamera, d3dmatrix2C0) == 0x2C0);
 static_assert(offsetof(EvWorkCamera, cam_mode_timer_364) == 0x364);
+static_assert(offsetof(EVWORK_CAR, field_1F8) == 0x1F8);
 static CameraObservation Camera() {
     const auto* camera = Module::exe_ptr<EvWorkCamera>(0x39FE10);
     CameraObservation c;
@@ -118,6 +119,11 @@ void Observe(EVWORK_CAR* car, bool post) {
     Copy(o.m70, car->matrix_70); Copy(o.mB0, car->matrix_B0); Copy(o.mF0, car->matrix_F0);
     o.camera = Camera();
     if (o.playerCar && !o.network) {
+        // Exact-build HUD routine 0x4BCF10 consumes this field before its
+        // km/h or mph display multiplier. Observe only; do not change telemetry
+        // or the legacy force law before matching a live HUD sample.
+        o.hudSpeedObserved = true;
+        o.hudSpeedBase = car->field_1F8;
         o.force = OutRunForceObservation::Read(car, OutRunForceObservation::ReadConfiguration(),
             Settings::DirectInputFFB, Settings::FFBProfile.empty() || _stricmp(Settings::FFBProfile.c_str(), "legacy") == 0,
             Settings::FFBUsePeriodicEffects, sub_1149C0);

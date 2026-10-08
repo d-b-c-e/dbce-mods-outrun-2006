@@ -30,6 +30,8 @@ class DiscoveryAnalysisTests(unittest.TestCase):
             if version >= 3:
                 row.update(force_inputs_observed=1, force_inputs_finite=1, force_legacy_requested=1,
                            field_1d0=i / 10, field_264=10+i, ffb_global_strength=0.5)
+            if version >= 4:
+                row.update(hud_speed_observed=1, hud_speed_finite=1, field_1f8=20+i)
             rows.append(row)
         if edit:
             edit(rows)
@@ -89,6 +91,28 @@ class DiscoveryAnalysisTests(unittest.TestCase):
             report = module.analyze(self.root)
             self.assertEqual(0, report["forceInputPreRows"])
             self.assertEqual({}, report["forceInputRanges"])
+
+    def test_hud_speed_raw_range_and_old_capture_absence(self):
+        self.case(4)
+        report=module.analyze(self.root)
+        self.assertEqual(4, report["hudSpeedValidRows"])
+        self.assertEqual({"min":20,"median":21.5,"max":23},report["hudSpeedBaseRange"])
+        for version in (1,2,3):
+            self.case(version)
+            report=module.analyze(self.root)
+            self.assertEqual(0, report["hudSpeedValidRows"])
+            self.assertIsNone(report["hudSpeedBaseRange"])
+
+    def test_hud_speed_unavailable_and_contradictory_flags(self):
+        self.case(4,edit=lambda rows: rows[0].update(hud_speed_finite=0,field_1f8=float("nan")))
+        report=module.analyze(self.root)
+        self.assertEqual(3,report["hudSpeedValidRows"])
+        self.assertEqual(4,report["cameraValidRows"])
+        json.dumps(report,allow_nan=False)
+        for change in ({"hud_speed_observed":0},{"hud_speed_finite":2},{"field_1f8":float("inf")}):
+            self.case(4,edit=lambda rows: rows[0].update(change))
+            with self.assertRaisesRegex(ValueError,"HUD speed"):
+                module.analyze(self.root)
 
     def test_unobserved_or_nonfinite_camera_excluded_not_zero_filled(self):
         def edit(rows):

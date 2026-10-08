@@ -1,13 +1,17 @@
 # OutRun2006Tweaks-FFB working notes
 
-**October 8 current checkpoint:** `e5b44f8` force-delivery candidate installed
+**October 8 current checkpoint:** `cbbaa51` schema-3 input observer installed
 privately with reviewed 41-export native `50ba139`, five INIs retained, no new
-physical test. Later schema-3 discovery source adds raw force inputs/settings
-while FFB remains Off (402 discovery checks, 12 analyzer tests, legacy golden
-replay and Release build pass). It does not fabricate original force commands.
+physical test. A muted moving window has 3,506 complete pairs, finite force inputs,
+and exact restoration of nine owner files. One earlier menu attempt hung before
+discovery was armed; retry passed. The native force DLL was absent from the hang
+dump, whose omitted WOW64 stack prevents a game/proxy call-stack diagnosis.
+Read `docs/2026-10-08-force-input-readback.md`. Do not call this release-ready or
+infer original force commands from raw inputs (402 discovery checks, 12 analyzer
+tests, legacy golden replay and Release build pass).
 Read `docs/TICK-DISCOVERY.md` and
 `docs/2026-10-08-force-delivery-acknowledgment.md`; live input-window qualification
-and gameplay replay remain open. Earlier installed-candidate notes are historical.
+and gameplay replay remain separate; gameplay replay remains open. Earlier installed-candidate notes are historical.
 
 **October 7 live discovery readback:** the reviewed 069fe41 private candidate is
 now installed (proxy 73432838; native/profile unchanged). Claude's stationary

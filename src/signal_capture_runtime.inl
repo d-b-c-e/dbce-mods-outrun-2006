@@ -7,7 +7,7 @@ namespace R=SignalRecording;
 static std::wstring root, leasePath, directory, dataPath, outcomePath;
 static std::string proxySha;
 static C::Request request;
-static bool resolved=false, faulted=false, finalized=false;
+static bool resolved=false, faulted=false, finalized=false, armedOnce=false;
 static std::uint32_t update=0, pausedCalls=0;
 static ULONGLONG started=0;
 static EVWORK_CAR* producerCar=nullptr;
@@ -76,6 +76,9 @@ static void TryArm() {
     dataPath=directory+L"\\signals.osig";outcomePath=directory+L"\\outcome.txt";
     if(!CreateDirectoryW(directory.c_str(),nullptr)){Refuse(path,"result directory exists or unavailable");return;}
     if(!MoveFileExW(path.c_str(),(directory+L"\\request.txt").c_str(),0)){Refuse(path,"request claim failed");return;}
+    // One accepted request per process. Completion never silently admits a
+    // second recording; a new capture needs a separately supervised launch.
+    armedOnce=true;
     if(!R::Begin(next.source,true)) {
         C::WriteNew(outcomePath,std::string("schema=")+C::Schema+"\noutcome=incomplete\nreason=buffer unavailable\n");return;
     }
@@ -97,7 +100,7 @@ static void Poll() {
         if(update%60==0&&!LeaseMatches()){Fault("SignalCapture: rig lease lost");return;}
         if(GetTickCount64()-started>=ULONGLONG(request.seconds)*1000){Finish(true,"duration ended");return;}
         if(update%60==0&&C::Exists(directory+L"\\stop.txt")){Finish(false,"external stop before duration");return;}
-    }else if(update%60==0)TryArm();
+    }else if(!armedOnce&&update%60==0)TryArm();
 }
 static void VirtualConstant(LONG value) {
     // This updates only the producer's duplicate-suppression state. No accepted

@@ -76,6 +76,6 @@ try {
  $mutedArgs=@($compileArgs | ForEach-Object {$_.Replace('signal_calculation_fixture.cpp','signal_muted_fixture.cpp').Replace('/Fe"'+$exe+'"','/Fe"'+$mutedExe+'"')})
  @('@echo off',('call "'+$vs+'\VC\Auxiliary\Build\vcvars32.bat" >nul'),'if errorlevel 1 exit /b %errorlevel%',('cl '+($mutedArgs -join ' ')),'exit /b %errorlevel%')|Set-Content $runner -Encoding ascii
  & $runner;if($LASTEXITCODE -ne 0){throw 'muted fixture compile failed'}
- foreach($mode in @('legacy','invalid')){& $mutedExe $mode (Join-Path $out ('muted-'+$mode));if($LASTEXITCODE -ne 0){throw "muted $mode failed"}}
+ foreach($mode in @('legacy','invalid','empty','stop','lease','stale-lease','model','car','invalid-input','exit','mid-frame','overflow','write-failure')){& $mutedExe $mode (Join-Path $out ('muted-'+$mode));if($LASTEXITCODE -ne 0){throw "muted $mode failed"}}
  Write-Host "PASS: actual legacy calculation, constant/periodic reset repeatability, 48-frame warmup/shift/crash/water history; fixed60Hz semantics; numeric/privacy/version/bounds/truncation/order and exits 0/1/2. Memory-only output. Evidence: $out"
 }finally{Pop-Location}

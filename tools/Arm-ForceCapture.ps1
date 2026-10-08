@@ -22,6 +22,7 @@ $ErrorActionPreference='Stop'
 $repo=Split-Path $PSScriptRoot -Parent
 $slot=Join-Path $env:LOCALAPPDATA 'dbce/test-slot.txt'
 if (-not (Test-Path -LiteralPath $slot) -or (Get-Item -LiteralPath $slot).LastWriteTimeUtc -le [DateTime]::UtcNow.AddHours(-2) -or
+ (Get-Item -LiteralPath $slot).LastWriteTimeUtc -gt [DateTime]::UtcNow -or
  (Get-Content -LiteralPath $slot -Raw).TrimEnd("`r","`n") -cne $LeaseToken) {throw 'An exact current rig lease is required'}
 if($LeaseToken -cnotmatch '^[\x20-\x7e]{1,512}$'){throw 'Lease must fit the capture request'}
 $root=Join-Path $env:LOCALAPPDATA 'Dbce/StagePlayback/outrun-force'
@@ -37,7 +38,7 @@ if($PSCmdlet.ParameterSetName -eq 'Stop') {
 $game=(Resolve-Path -LiteralPath $GameDir).Path
 $package=(Resolve-Path -LiteralPath $RuntimePackageDirectory).Path
 $manifest=Get-Content -LiteralPath (Join-Path $package 'package-manifest.json') -Raw|ConvertFrom-Json
-if($manifest.schemaVersion -ne 2 -or $manifest.architecture -ne 'x86' -or $manifest.sourceDirty){throw 'Use a clean x86 runtime package manifest'}
+if($manifest.schemaVersion -ne 2 -or $manifest.architecture -ne 'x86' -or $manifest.sourceDirty -isnot [bool] -or $manifest.sourceDirty){throw 'Use a clean x86 runtime package manifest'}
 $source=$manifest.runtimeSourceCommit
 if($source -cnotmatch '^[a-f0-9]{40}$'){throw 'Missing exact runtime source'}
 $entry=@($manifest.files|Where-Object name -ceq 'dinput8.dll')

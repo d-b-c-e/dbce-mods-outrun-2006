@@ -20,8 +20,8 @@ static std::string RequestText(std::string id,std::string game,std::string proxy
 int main(int argc,char**argv) {
  try {
     spdlog::set_level(spdlog::level::off);
-    Check(argc==3,"usage: muted-test legacy|invalid output-root");
-    std::string mode=argv[1];SetEnvironmentVariableW(L"DBCE_OUTRUN_SIGNAL_MUTE",mode=="legacy"?L"legacy":L"invalid");
+    Check(argc==3,"usage: muted-test scenario output-root");
+    std::string mode=argv[1];SetEnvironmentVariableW(L"DBCE_OUTRUN_SIGNAL_MUTE",mode=="invalid"?L"invalid":L"legacy");
     Check(OutRunSignalMute::BlocksOutput(),"mute missing");
     SetEnvironmentVariableW(L"DBCE_OUTRUN_SIGNAL_MUTE",nullptr);
     Check(OutRunSignalMute::BlocksOutput(),"cached mute switched off");
@@ -32,7 +32,7 @@ int main(int argc,char**argv) {
     Check(!productionConstants&&!productionPeriodics,"native output while muted");
     FFB::ffbLoaded=FFB::initialized=false;
     Settings::TelemetryEnabled=true;Check(!Telemetry::Init(),"motion telemetry initialized under mute");Telemetry::Write(nullptr,true);
-    if(mode!="legacy") {FFB::SignalCaptureUpdate();FFB::ProcessMutedSignals(nullptr);Check(!R::session&&loadAttempts==0,"invalid mode captured/loaded");std::cout<<"PASS invalid mode stays muted without calculating\n";return 0;}
+    if(mode=="invalid") {FFB::SignalCaptureUpdate();FFB::ProcessMutedSignals(nullptr);Check(!R::session&&loadAttempts==0,"invalid mode captured/loaded");std::cout<<"PASS invalid mode stays muted without calculating\n";return 0;}
     const auto base=std::filesystem::absolute(argv[2]);std::filesystem::create_directories(base);
     SetEnvironmentVariableW(L"LOCALAPPDATA",base.c_str());
     const auto root=base/L"Dbce/StagePlayback/outrun-force";std::filesystem::create_directories(root);
@@ -59,14 +59,41 @@ int main(int argc,char**argv) {
     GameState state=STATE_GAME;GameStage stage=(GameStage)0;int app=0,power=0,ticks=1,gameMode=0;
     Game::current_mode=&state;Game::stg_stage_num=&stage;Game::app_time=&app;Game::power_on_timer=&power;Game::sprani_num_ticks=&ticks;Game::game_mode=&gameMode;
     for(int i=0;i<60;i++)FFB::SignalCaptureUpdate();Check(R::session&&R::session->softwareOnly,"runtime did not arm");
-    for(int i=0;i<360;i++) {
+    const int rowCount=mode=="legacy"?360:mode=="empty"?0:mode=="overflow"?8193:3;
+    for(int i=0;i<rowCount;i++) {
         FFB::SignalCaptureUpdate();app++;power++;
         if(i==70){Overlay::WheelSettingsVisible=true;FFB::Update(&car);Overlay::WheelSettingsVisible=false;}
         car.field_1D0=i<180?.2f:-.3f;
         FFB::Update(&car);
     }
-    Check(R::session&&R::session->count==360&&!R::session->failed,"original muted capture incomplete");
+    if(mode=="overflow")FFB::SignalCaptureUpdate();
+    else Check(R::session&&R::session->count==size_t(rowCount)&&!R::session->failed,"original muted capture incomplete");
     Check(!FFB::ffbLoaded&&!FFB::initialized&&!Telemetry::initialized&&!loadAttempts,"hardware path used");
+    const auto result=root/std::wstring(id.begin(),id.end());
+    if(mode!="legacy") {
+        if(mode=="stop") {Check(C::WriteNew((result/L"stop.txt").wstring(),"stop\n"),"stop create");M::update=59;FFB::SignalCaptureUpdate();}
+        else if(mode=="lease") {std::ofstream(base/L"dbce/test-slot.txt",std::ios::trunc)<<"other owner";M::update=59;FFB::SignalCaptureUpdate();}
+        else if(mode=="stale-lease") {std::filesystem::last_write_time(base/L"dbce/test-slot.txt",std::filesystem::file_time_type::clock::now()-std::chrono::hours(3));M::update=59;FFB::SignalCaptureUpdate();}
+        else if(mode=="model") {Settings::FFBProfile="arcade";FFB::SignalCaptureUpdate();}
+        else if(mode=="car") {car.car_id_10++;FFB::Update(&car);}
+        else if(mode=="invalid-input") {car.field_1C4=std::numeric_limits<float>::quiet_NaN();FFB::Update(&car);}
+        else if(mode=="exit") FFB::FinalizeSignalCapture();
+        else if(mode=="mid-frame") {
+            R::current=&R::session->frames[0];M::Fault("synthetic mid-frame fault");
+            Check(R::session&&R::session->failed&&!C::Exists((result/L"outcome.txt").wstring()),"mid-frame fault claimed completion");
+            R::current=nullptr;FFB::FinalizeSignalCapture();
+        } else if(mode=="empty"||mode=="write-failure") {
+            if(mode=="write-failure")Check(C::WriteNew((result/L"signals.osig").wstring(),"existing evidence"),"file collision create");
+            M::started=GetTickCount64()-10001;FFB::SignalCaptureUpdate();
+        } else Check(mode=="overflow","unknown scenario");
+        Check(!R::session,"interrupted capture did not detach");
+        const auto outcome=C::ReadSmall((result/L"outcome.txt").wstring());
+        Check(outcome.find("outcome=incomplete")!=std::string::npos&&outcome.find("outcome=complete")==std::string::npos,"interrupted capture claimed success");
+        if(mode=="write-failure")Check(C::ReadSmall((result/L"signals.osig").wstring())=="existing evidence","overwrote prior evidence");
+        else {std::ifstream in(result/L"signals.osig",std::ios::binary);std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(in)),{});Invalid(bytes);}
+        FFB::FinalizeSignalCapture();Check(!productionConstants&&!productionPeriodics&&!loadAttempts,"failure escaped mute");
+        std::cout<<"PASS incomplete and output-muted: "<<mode<<"\n";return 0;
+    }
     bool nonzero=false;for(size_t i=0;i<R::session->count;i++)for(size_t j=0;j<R::session->frames[i].count;j++)nonzero|=R::session->frames[i].requests[j].magnitude!=0;
     Check(nonzero,"producer was silenced with output");
     M::started=GetTickCount64()-10001;FFB::SignalCaptureUpdate();Check(!R::session,"runtime did not close");
@@ -76,6 +103,9 @@ int main(int argc,char**argv) {
     *bad=*captured;bad->frames[2].context[0]=bad->frames[1].context[0];Invalid(R::Encode(*bad));
     const auto outcome=C::ReadSmall((root/std::wstring(id.begin(),id.end())/L"outcome.txt").wstring());
     Check(outcome.find("outcome=complete")!=std::string::npos&&outcome.find("admission=virtual")!=std::string::npos,"complete receipt missing");
+    Check(C::WriteNew((root/L"request.txt").wstring(),RequestText(std::string(32,'c'),game,proxy,source,lease)),"second request create");
+    for(int i=0;i<60;i++)FFB::SignalCaptureUpdate();
+    Check(!R::session&&C::Exists((root/L"request.txt").wstring()),"second capture armed in same process");
     FFB::FinalizeSignalCapture();Check(loadAttempts==0,"loader called");
     std::cout<<"PASS process-cached mute, loader/sink/telemetry guards, bound/hash/lease/expiry request, original Update producer with FFB Off, pause checkpoint, 360-row v3 exact replay and false-native refusal; no device\n";
     return 0;

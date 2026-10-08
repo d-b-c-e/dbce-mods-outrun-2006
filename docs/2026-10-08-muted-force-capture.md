@@ -49,6 +49,11 @@ the outcome comes last. Missing, incomplete or failed outcomes are not success.
 Early stop, exit, lost lease, invalid input, model changes and overflow do not
 produce a complete capture. Physical output stays blocked after capture ends.
 On normal exit, force/input cleanup and lifecycle drain precede file writing.
+Only one accepted request can record per process; another capture needs a new
+supervised launch. A fault during an active row marks the buffer incomplete and
+defers writing until that row drains, including normal exit. No outcome is never
+a pass. The lease argument is the entire one-line `$lease.token` returned by
+`Enter-StageRigLease`, with its two-hour expiry; it is not just the UUID suffix.
 
 The nominal 60 Hz field describes the existing arithmetic, not a measured
 wall-clock sampling rate. `field_1c4` remains a raw speed input with unqualified
@@ -67,6 +72,14 @@ checks 360 original nonzero rows, pause checkpoints, V3 exact replay, cached
 mute, invalid-mode refusal, hash/lease/expiry/request bounds and false native
 state. Loader, output and motion-delivery calls remain absent. The real
 consumer/host lifecycle fixtures also pass, including cleanup-before-recording.
+
+Claude's source review passed on `4cb26b4`. Follow-up fixtures exercise empty
+captures, early stop, replaced/stale lease, changed model/car, non-finite input,
+exit, mid-frame fault, overflow and an existing destination file: all remain
+incomplete and output-muted. A second request cannot arm after completion.
+`tools/tests/Test-ArmForceCapture.ps1 -ExactExecutable <supported-exe>` checks
+the arm/stop tool using copied game bytes and dummy proxy files; it never loads
+a DLL, starts a game or touches the live rig lease.
 
 Required before runtime: reciprocal review, clean Release build/package, exact
 installer/owner-file preservation, one bounded offline moving capture and exact

@@ -14,6 +14,7 @@ static DWORD FixtureWindowOwner(HWND, DWORD* owner) { *owner = GetCurrentProcess
 namespace TickDiscovery { void Observe(EVWORK_CAR*, bool) {} void NoteHooks(bool, bool) {} } // inert without an armed window
 #include <cassert>
 #include <iostream>
+#include <limits>
 
 float VibrationLeftMotor = 0, VibrationRightMotor = 0;
 double __cdecl sub_1149C0(unsigned int, int, DWORD*) { return 0; }
@@ -29,10 +30,10 @@ int GetTelemetryBrake() { return -1; }
 UiSnapshot ReadUiSnapshot() { return {}; }
 }
 static int outputCalls = 0, initCalls = 0, freeCalls = 0, strictCalls = 0;
-static int outputResult = 1, retainedForce = 0, startCalls = 0, auxiliaryCreates = 0;
+static int outputResult = 1, periodicResult = 1, retainedForce = 0, startCalls = 0, auxiliaryCreates = 0;
 static GUID selected{};
-static int __cdecl Output(int x, int y) { assert(x == 0 && y == 0); ++outputCalls; if(outputResult)retainedForce=0; return outputResult; }
-static int __cdecl Periodic(int, int magnitude, int) { assert(magnitude == 0); ++outputCalls; return 1; }
+static int __cdecl Output(int x, int y) { assert(y == 0); ++outputCalls; if(outputResult)retainedForce=x; return outputResult; }
+static int __cdecl Periodic(int, int, int) { ++outputCalls; return periodicResult; }
 static void __cdecl Free() { ++freeCalls; retainedForce=0; }
 static BOOL __cdecl Start() { ++startCalls; return TRUE; } // Would replay retainedForce unchanged.
 static int __cdecl AcceptedInit(int hwnd) { assert(hwnd == 1); ++initCalls; return 1; }
@@ -133,6 +134,44 @@ int main()
     assert(!DeferredInit() && outputCalls == beforeOutput); // latched until explicit Refresh
     SelectionChanged(); outputResult = 1; Settings::FFBUsePeriodicEffects = false;
     assert(DeferredInit() && initialized && startCalls == 0); // explicit retry succeeds
+    Settings::FFBGlobalStrength = 1;
+    SetConstantForce(4321); assert(retainedForce == 4321 && prevConstantLevel == 4321);
+    outputResult = 0; beforeFree = freeCalls; beforeOutput = outputCalls;
+    SetConstantForce(-1234);
+    assert(freeCalls == beforeFree + 1 && !initialized && initAttempted && retainedForce == 0);
+    assert(prevConstantLevel == 4321); // Refused command never becomes the deadband cache.
+    assert(!periodicsActive && slotRoadTexture == -1 && slotTireSlip == -1);
+    assert(deviceError.find("refused output") != std::string::npos);
+    SetConstantForce(2222); UpdatePeriodic(0, 0.5f, 25);
+    assert(!DeferredInit() && outputCalls == beforeOutput + 1); // No automatic acquisition/retry.
+    SelectionChanged(); outputResult = 1; assert(DeferredInit());
+    SetConstantForce(4321); periodicResult = 0; beforeFree = freeCalls;
+    UpdatePeriodic(0, 0.5f, 25);
+    assert(!initialized && initAttempted && freeCalls == beforeFree + 1 && retainedForce == 0);
+    periodicResult = 1; SelectionChanged(); assert(DeferredInit());
+    SetConstantForce(4321);
+    ConsumerLifecycle::actuatorReadiness = [](void*) { return false; };
+    beforeOutput = outputCalls;
+    SetConstantForce(2000); UpdatePeriodic(0, 0.5f, 25);
+    assert(outputCalls == beforeOutput && retainedForce == 4321);
+    periodicsActive = true; slotRoadTexture = 0; slotTireSlip = 1;
+    ZeroAllForces();
+    assert(outputCalls == beforeOutput + 3 && retainedForce == 0 && prevConstantLevel == 0);
+    // A refused zero still releases the held output; it cannot pretend to stop.
+    retainedForce = prevConstantLevel = 4321; outputResult = 0; beforeFree = freeCalls;
+    ZeroAllForces();
+    assert(freeCalls == beforeFree + 1 && retainedForce == 0 && !initialized);
+    ConsumerLifecycle::actuatorReadiness = [](void*) { return true; };
+    outputResult = 1; SelectionChanged(); assert(DeferredInit());
+    beforeOutput = outputCalls; beforeFree = freeCalls;
+    Settings::FFBGlobalStrength = std::numeric_limits<float>::quiet_NaN();
+    SetConstantForce(1234);
+    assert(outputCalls == beforeOutput && freeCalls == beforeFree + 1 && !initialized);
+    Settings::FFBGlobalStrength = 1; SelectionChanged(); assert(DeferredInit());
+    beforeOutput = outputCalls; beforeFree = freeCalls;
+    UpdatePeriodic(0, 0.5f, std::numeric_limits<float>::infinity());
+    assert(outputCalls == beforeOutput && freeCalls == beforeFree + 1 && !initialized);
     std::cout << "PASS: six production output gates zero constant/periodics before init; zero-before-switch; unbound follow-mode refusal; strict explicit GUID; driver refusal; zero-HWND refusal.\n";
     std::cout << "PASS: accepted-zero startup replaces retained force; refused zero releases and latches without auxiliaries; explicit retry only.\n";
+    std::cout << "PASS: refused constant/periodic/zero release retained output without caching or retry; readiness loss still permits zero; nonfinite output settings refused.\n";
 }

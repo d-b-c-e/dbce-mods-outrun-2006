@@ -41,3 +41,10 @@ October 8 discovery source adds camera observations to the existing bounded
 window (schema 2, 334 fixture checks and Release build pass). It does not promote
 STD-012/015: no pose writer, producer-preserving mute or projected rendering is
 implemented by this change. See `docs/TICK-DISCOVERY.md`.
+
+October 8 force delivery follow-up preserves STD-012's distinction between
+requested signals and accepted output: refused native updates no longer advance
+the accepted-force cache and release/latch output until an explicit retry.
+Production fake ABI and legacy signal replay pass; source review/install are
+pending, and STD-012 remains pending. See
+`docs/2026-10-08-force-delivery-acknowledgment.md`.

@@ -426,19 +426,39 @@ namespace FFB
 		return std::clamp(Settings::FFBGlobalStrength, 0.0f, 1.0f);
 	}
 
+	// A refused update is not an accepted command. Release the retained output
+	// device (the independent remap reader survives) and require an explicit
+	// Refresh/selection before another acquisition. Do not cache the failed
+	// request: the calculation recorder retains the actual admission feedback.
+	static void RefuseDelivery()
+	{
+		ffb.FreeDirectInput();
+		initialized = false;
+		initAttempted = true;
+		periodicsActive = false;
+		slotRoadTexture = slotTireSlip = -1;
+		prevStructLevel = 0;
+		warmupFrames = 0;
+		deviceError = "Wheel refused output; released. Check the wheel, then Refresh devices";
+	}
+
 	static void SetConstantForce(LONG magnitude)
 	{
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
-        if (!lease || !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return;
+        if (!lease) return;
 		if (!initialized || !ffbLoaded || panicStopped)
 			return;
+		// Loss of actuator readiness prevents new force, never silencing a
+		// device we already own. This path does not load or initialize anything.
+		if (magnitude != 0 && !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return;
+		if (!std::isfinite(Settings::FFBGlobalStrength)) { RefuseDelivery(); return; }
 		magnitude = std::clamp(magnitude, (LONG)-10000, (LONG)10000);
 		LONG scaled = (LONG)std::clamp((float)magnitude * StrengthScale(), -10000.0f, 10000.0f);
 		// Y is always zero: OutRun steers on one axis. The DLL decides how to
 		// encode that for the wheel in front of it - three wheels disagreed
 		// about direction versus magnitude sign, and it carries the encoding
 		// all three accept.
-		ffb.SetDeviceForcesXY(scaled, 0);
+		if (!ffb.SetDeviceForcesXY(scaled, 0)) { RefuseDelivery(); return; }
 		prevConstantLevel = magnitude;
 	}
 
@@ -448,12 +468,15 @@ namespace FFB
 	static void UpdatePeriodic(int slot, float magnitude01, float freqHz)
 	{
         ConsumerLifecycle::Gate::Lease lease(ConsumerLifecycle::Runtime());
-        if (!lease || !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return;
+        if (!lease) return;
 		if (!initialized || slot < 0 || !ffbLoaded || panicStopped)
 			return;
+		if (magnitude01 != 0 && !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return;
+		if (!std::isfinite(magnitude01) || !std::isfinite(freqHz) ||
+			!std::isfinite(Settings::FFBGlobalStrength)) { RefuseDelivery(); return; }
 		float mag = std::clamp(magnitude01, 0.0f, 1.0f) * StrengthScale();
-		ffb.UpdatePeriodicEffect(slot, (int)(mag * 10000.0f),
-			(int)(std::clamp(freqHz, 1.0f, 100.0f) * 1000.0f));
+		if (!ffb.UpdatePeriodicEffect(slot, (int)(mag * 10000.0f),
+			(int)(std::clamp(freqHz, 1.0f, 100.0f) * 1000.0f))) RefuseDelivery();
 	}
 
 	// Zero all force output without tearing anything down (Alt-Tab, menus, watchdog)

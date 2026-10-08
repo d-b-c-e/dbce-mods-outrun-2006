@@ -426,7 +426,11 @@ namespace FFB
 		return std::clamp(Settings::FFBGlobalStrength, 0.0f, 1.0f);
 	}
 
-	// A refused update is not an accepted command. Release the retained output
+	static bool deliveryRecoveryPending = false;
+	static bool deliveryRecoveryClockRunning = false;
+	static ULONGLONG deliveryRecoveryStart = 0;
+
+	// A permanently refused update is not an accepted command. Release the retained output
 	// device (the independent remap reader survives) and require an explicit
 	// Refresh/selection before another acquisition. Do not cache the failed
 	// request: the calculation recorder retains the actual admission feedback.
@@ -435,11 +439,54 @@ namespace FFB
 		ffb.FreeDirectInput();
 		initialized = false;
 		initAttempted = true;
+		deliveryRecoveryPending = deliveryRecoveryClockRunning = false;
 		// Keep calculation state/route identifiers through this sample. Clearing
 		// them inside a sink changes the remainder of CalculateSignals and breaks
 		// its recorded post-state. initialized=false blocks every further native
 		// send. Explicit selection/Refresh resets the model before reacquisition.
 		deviceError = "Wheel refused output; released. Check the wheel, then Refresh devices";
+	}
+
+	static bool AcceptDelivery(int accepted)
+	{
+		if (accepted) return true;
+		const HRESULT error = static_cast<HRESULT>(ffb.GetLastHResult());
+		if (error != DIERR_NOTEXCLUSIVEACQUIRED && error != DIERR_INPUTLOST &&
+			error != DIERR_NOTACQUIRED && error != E_HANDLE && error != DIERR_NOTDOWNLOADED)
+		{
+			RefuseDelivery();
+			return false;
+		}
+		// Access loss and the native's documented 500 ms effect recreation are
+		// transient. Silence best-effort, but never call this an accepted zero.
+		// The next eligible Update must acknowledge neutral on every owned slot
+		// before any nonzero request can reach native again. Preserve producer
+		// state through the current calculation/recording sample.
+		deliveryRecoveryPending = true;
+		ffb.ZeroForces();
+		deviceError = "Wheel access interrupted; waiting for neutral recovery";
+		return false;
+	}
+
+	static bool RecoverDelivery()
+	{
+		if (!deliveryRecoveryPending) return true;
+		const ULONGLONG now = GetTickCount64();
+		if (!deliveryRecoveryClockRunning) {
+			deliveryRecoveryStart = now;
+			deliveryRecoveryClockRunning = true;
+		}
+		if (now - deliveryRecoveryStart >= 2000) { RefuseDelivery(); return false; }
+		if (!AcceptDelivery(ffb.SetDeviceForcesXY(0, 0))) return false;
+		if (periodicsActive) {
+			if (!AcceptDelivery(ffb.UpdatePeriodicEffect(slotRoadTexture, 0, 25000))) return false;
+			if (!AcceptDelivery(ffb.UpdatePeriodicEffect(slotTireSlip, 0, 40000))) return false;
+		}
+		deliveryRecoveryPending = deliveryRecoveryClockRunning = false;
+		prevConstantLevel = prevStructLevel = 0;
+		warmupFrames = 0;
+		deviceError.clear();
+		return true;
 	}
 
 	static void SetConstantForce(LONG magnitude)
@@ -450,7 +497,7 @@ namespace FFB
 			return;
 		// Loss of actuator readiness prevents new force, never silencing a
 		// device we already own. This path does not load or initialize anything.
-		if (magnitude != 0 && !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return;
+		if (magnitude != 0 && (deliveryRecoveryPending || !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd()))) return;
 		if (!std::isfinite(Settings::FFBGlobalStrength)) { RefuseDelivery(); return; }
 		magnitude = std::clamp(magnitude, (LONG)-10000, (LONG)10000);
 		LONG scaled = (LONG)std::clamp((float)magnitude * StrengthScale(), -10000.0f, 10000.0f);
@@ -458,7 +505,7 @@ namespace FFB
 		// encode that for the wheel in front of it - three wheels disagreed
 		// about direction versus magnitude sign, and it carries the encoding
 		// all three accept.
-		if (!ffb.SetDeviceForcesXY(scaled, 0)) { RefuseDelivery(); return; }
+		if (!AcceptDelivery(ffb.SetDeviceForcesXY(scaled, 0))) return;
 		prevConstantLevel = magnitude;
 	}
 
@@ -471,12 +518,12 @@ namespace FFB
         if (!lease) return;
 		if (!initialized || slot < 0 || !ffbLoaded || panicStopped)
 			return;
-		if (magnitude01 != 0 && !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd())) return;
+		if (magnitude01 != 0 && (deliveryRecoveryPending || !ConsumerLifecycle::ReadyForActuator(Game::GameHwnd()))) return;
 		if (!std::isfinite(magnitude01) || !std::isfinite(freqHz) ||
 			!std::isfinite(Settings::FFBGlobalStrength)) { RefuseDelivery(); return; }
 		float mag = std::clamp(magnitude01, 0.0f, 1.0f) * StrengthScale();
-		if (!ffb.UpdatePeriodicEffect(slot, (int)(mag * 10000.0f),
-			(int)(std::clamp(freqHz, 1.0f, 100.0f) * 1000.0f))) RefuseDelivery();
+		AcceptDelivery(ffb.UpdatePeriodicEffect(slot, (int)(mag * 10000.0f),
+			(int)(std::clamp(freqHz, 1.0f, 100.0f) * 1000.0f)));
 	}
 
 	// Zero all force output without tearing anything down (Alt-Tab, menus, watchdog)
@@ -486,6 +533,8 @@ namespace FFB
         if (!lease) return;
 		if (!initialized || panicStopped)
 			return;
+		// Time spent in menus or background is not a failed foreground retry.
+		deliveryRecoveryClockRunning = false;
 		if (prevConstantLevel != 0)
 			SetConstantForce(0);
 		prevStructLevel = 0;
@@ -582,6 +631,7 @@ namespace FFB
 		if (ffbLoaded && initialized) ffb.FreeDirectInput();
 		initialized = false;
 		initAttempted = false;
+		deliveryRecoveryPending = deliveryRecoveryClockRunning = false;
 		periodicsActive = false;
 		slotRoadTexture = slotTireSlip = -1;
 		prevConstantLevel = prevStructLevel = 0;
@@ -852,6 +902,7 @@ static void SampleSurface(EVWORK_CAR* car, float& roughness, DWORD& waterFlag)
 		// FFB processing only when DirectInputFFB is enabled
 		if (!Settings::DirectInputFFB || Overlay::IsActive || Overlay::WheelSettingsVisible ||
 			Overlay::IsBindingDialogActive || GetForegroundWindow() != Game::GameHwnd() ||
+			!ConsumerLifecycle::ReadyForActuator(Game::GameHwnd()) ||
 			!Game::current_mode || *Game::current_mode != STATE_GAME)
 		{
 			ZeroAllForces();
@@ -865,6 +916,7 @@ static void SampleSurface(EVWORK_CAR* car, float& roughness, DWORD& waterFlag)
 			if (!DeferredInit())
 				return;
 		}
+		if (!RecoverDelivery()) return;
 
 		// Zero forces when not in gameplay (menus, results, etc.)
 		// Prevents the wheel from staying stuck at the last force level

@@ -46,6 +46,7 @@ static bool refuseConstant=false;
 static int __cdecl ProductionConstant(int,int) {++productionConstants;return refuseConstant ? 0 : 1;}
 static int __cdecl ProductionPeriodic(int,int,int) {++productionPeriodics;return 0;}
 static void __cdecl ProductionFree() {++productionFrees;}
+static int __cdecl ProductionError() { return static_cast<int>(E_FAIL); }
 static void Invalid(const R::Bytes&b){bool rejected=false;try{(void)R::Decode(b);}catch(const std::exception&){rejected=true;}Require(rejected,"invalid session accepted");}
 static void SelfTest(const char* input,const wchar_t* output) {
     auto frames=Read(input);Require(frames.size()>42,"synthetic state fixture too short");
@@ -121,7 +122,8 @@ static void SelfTest(const char* input,const wchar_t* output) {
     ConsumerLifecycle::actuatorReadiness=[](void*){return true;};
     FFB::ffb.SetDeviceForcesXY=ProductionConstant;
     FFB::ffb.UpdatePeriodicEffect=ProductionPeriodic;
-    FFB::ffb.FreeDirectInput=ProductionFree;
+        FFB::ffb.FreeDirectInput=ProductionFree;
+        FFB::ffb.GetLastHResult=ProductionError;
     for(bool failConstant:{true,false}) {
         R::Configure(s->frames[0].config);FFB::ResetCalculationState();
         FFB::ffbLoaded=FFB::initialized=true;FFB::initAttempted=false;

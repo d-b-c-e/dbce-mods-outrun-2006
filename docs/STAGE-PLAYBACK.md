@@ -7,8 +7,15 @@ setting or native hook changed during this intake. DRIVE's completed diagnostic
 allowed this follow-up to begin; its Unity adapter cannot qualify these native
 x86 hooks.
 
-**October 8 checkpoint:** camera-discovery runtime 6ccd7dd is installed. A
-moving offline window validates 3,310 ordered pairs with every camera row finite;
+**October 8 current install:** reviewed force-delivery runtime `e5b44f8` is
+installed privately; native 41-export `50ba139`, five saved INI files retained.
+See [the installation and offline recovery evidence](2026-10-08-force-delivery-acknowledgment.md).
+Later source extends discovery with raw force inputs under schema 3, without
+turning on FFB or calculating replacement commands; read `TICK-DISCOVERY.md`.
+Its live qualification remains pending.
+
+**Earlier October 8 checkpoint:** camera-discovery runtime 6ccd7dd produced a
+moving offline window with 3,310 ordered pairs and every camera row finite;
 car changes occur inside the car hook and camera changes outside it. Read
 [the moving-window analysis](2026-10-08-moving-camera-discovery.md). Original
 force capture, complete pose/camera ownership and gameplay playback remain open.

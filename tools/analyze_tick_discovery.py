@@ -16,6 +16,12 @@ CAM_MATRICES = ["camera_140", "camera_180", "camera_1c0", "camera_200", "camera_
 CAM_SCALARS = ("camera_observed camera_finite camera_mode camera_fov_ac camera_znear_bc "
                "camera_zfar_c0 camera_timer_364").split()
 CAM_VECTORS = ["camera_pos_f8", "camera_look_104", "camera_angle_128"]
+FORCE_FIELDS = ("force_inputs_observed force_inputs_finite force_output_enabled force_legacy_requested "
+                "force_periodic_requested field_8 field_1c8 field_1cc field_1d0 field_1d4 field_1dc field_1e0 "
+                "field_264 field_268 surface_mask_0 surface_mask_1 surface_mask_2 surface_mask_3 load_coli_type "
+                "surface_roughness surface_water ffb_lateral_deadzone ffb_grip_loss ffb_wall_impact ffb_road_texture "
+                "ffb_tire_slip ffb_engine_idle ffb_spring_strength ffb_damper_strength ffb_steering_weight "
+                "ffb_weight_transfer ffb_gear_shift ffb_invert ffb_global_strength").split()
 
 
 def matrix_fields(name):
@@ -24,9 +30,11 @@ def matrix_fields(name):
 
 def fields(version):
     result = BASE + [k for m in CAR_MATRICES for k in matrix_fields(m)]
-    if version == 2:
+    if version >= 2:
         result += CAM_SCALARS + [f"{v}_{a}" for v in CAM_VECTORS for a in "xyz"]
         result += [k for m in CAM_MATRICES for k in matrix_fields(m)]
+    if version >= 3:
+        result += FORCE_FIELDS
     return result
 
 
@@ -49,7 +57,7 @@ def analyze(folder):
     outcome_bytes = (folder / "outcome.txt").read_bytes()
     outcome = kv(outcome_bytes.decode("utf-8-sig"))
     schema = outcome.get("schema")
-    if schema not in ("outrun2006.tick-discovery@1", "outrun2006.tick-discovery@2"):
+    if schema not in ("outrun2006.tick-discovery@1", "outrun2006.tick-discovery@2", "outrun2006.tick-discovery@3"):
         raise ValueError("unsupported discovery schema")
     if outcome.get("outcome") != "observed" or outcome.get("unmatchedPre") != "false":
         raise ValueError("only a completed observed window with no unmatched pre is accepted")
@@ -73,12 +81,18 @@ def analyze(folder):
         for k in expected[1:72]:
             if not math.isfinite(row[k]):
                 raise ValueError("non-finite car value")
-        if version == 2:
+        if version >= 2:
             if row["camera_observed"] not in (0, 1) or row["camera_finite"] not in (0, 1):
                 raise ValueError("invalid camera flags")
             if row["camera_finite"] and (not row["camera_observed"] or
-                                          not all(math.isfinite(row[k]) for k in expected[74:])):
+                                          not all(math.isfinite(row[k]) for k in expected[74:200])):
                 raise ValueError("camera finite flag disagrees with values")
+        if version >= 3:
+            if any(row[k] not in (0, 1) for k in FORCE_FIELDS[:5]):
+                raise ValueError("invalid force observation flags")
+            if row["force_inputs_finite"] and (not row["force_inputs_observed"] or
+                                               not all(math.isfinite(row[k]) for k in FORCE_FIELDS[5:])):
+                raise ValueError("force finite flag disagrees with values")
         if row["update"] != int(row["update"]) or row["micros"] < 0:
             raise ValueError("invalid update/time")
         if rows and row["micros"] < rows[-1]["micros"]:
@@ -97,7 +111,7 @@ def analyze(folder):
     pairs = list(zip(rows[::2], rows[1::2]))
     groups = {"position": [f"position_{a}" for a in "xyz"], "spd_mb": [f"spd_mb_{a}" for a in "xyz"]}
     groups.update({m: matrix_fields(m) for m in CAR_MATRICES})
-    if version == 2:
+    if version >= 2:
         groups.update({m: matrix_fields(m) for m in CAM_MATRICES})
         groups.update({v: [f"{v}_{a}" for a in "xyz"] for v in CAM_VECTORS})
     changes = {}
@@ -113,8 +127,9 @@ def analyze(folder):
         }
     scalar_keys = ["field_1c4", "pedal_amount_34", "cur_gear_208", "ticks"] + [f"position_{a}" for a in "xyz"]
     ranges = {k: summary([r[k] for r in rows]) for k in scalar_keys}
-    if version == 2:
+    if version >= 2:
         ranges.update({k: summary([r[k] for r in rows if r["camera_observed"] and r["camera_finite"]]) for k in CAM_SCALARS[2:]})
+    force_pre = [r for r in rows[::2] if r.get("force_inputs_observed") and r.get("force_inputs_finite")]
     return {"schema": "outrun2006.discovery-analysis@1", "inputSchema": schema,
             "outcomeSha256": hashlib.sha256(outcome_bytes).hexdigest(), "dataFile": name,
             "dataSha256": hashlib.sha256(data).hexdigest(), "rows": len(rows), "pairs": len(pairs),
@@ -122,6 +137,10 @@ def analyze(folder):
             "hookMicroseconds": summary([b["micros"] - a["micros"] for a, b in pairs]),
             "modes": sorted(set(r["current_mode"] for r in rows)), "ranges": ranges,
             "cameraValidRows": sum(bool(r.get("camera_observed") and r.get("camera_finite")) for r in rows),
+            "forceInputPreRows": len(force_pre),
+            "forceInputRanges": {k: summary([r[k] for r in force_pre]) for k in FORCE_FIELDS[5:]} if version >= 3 else {},
+            "forceOutputEnabledPreRows": sum(bool(r["force_output_enabled"]) for r in force_pre),
+            "forceQualification": "raw inputs only; no original force calculation, native route, command or calibrated speed",
             "changes": changes, "replayable": False,
             "limits": "Observed value changes only; not exclusive writer ownership, rendered timing, calibrated units or matrix roles."}
 

@@ -6,6 +6,7 @@
 #include <Windows.h>
 #include <spdlog/spdlog.h>
 #include "plugin.hpp"
+#include "legacy_force_configuration.hpp"
 #include "game_addrs.hpp"
 #include "game.hpp"
 #include "consumer_lifecycle.hpp"
@@ -14,6 +15,8 @@
 #include <cstring>
 #include <ctime>
 #include <cstddef>
+
+extern double __cdecl sub_1149C0(unsigned int surfaceMask, int loadColiType, DWORD* waterFlag);
 
 namespace TickDiscovery {
 static Controller controller;
@@ -114,6 +117,11 @@ void Observe(EVWORK_CAR* car, bool post) {
     o.velocity = { car->spd_mb_20.x, car->spd_mb_20.y, car->spd_mb_20.z };
     Copy(o.m70, car->matrix_70); Copy(o.mB0, car->matrix_B0); Copy(o.mF0, car->matrix_F0);
     o.camera = Camera();
+    if (o.playerCar && !o.network) {
+        o.force = OutRunForceObservation::Read(car, OutRunForceObservation::ReadConfiguration(),
+            Settings::DirectInputFFB, Settings::FFBProfile.empty() || _stricmp(Settings::FFBProfile.c_str(), "legacy") == 0,
+            Settings::FFBUsePeriodicEffects, sub_1149C0);
+    }
     controller.Observe(post ? Phase::Post : Phase::Pre, o);
     } catch (...) { Fault(); }
 }

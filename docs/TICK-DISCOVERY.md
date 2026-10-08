@@ -195,3 +195,44 @@ confirm 2,939 ordered pairs, 45 package files, three installed runtime files and
 eight restored owner files. The car rows span 48.958 seconds within the 60-second
 observation window; 12 catch-up pairs have ticks greater than one. Normal exit
 code 0 remains Claude-reported. No new runtime test was needed for this review.
+# October 8 force-input extension (schema 3)
+
+The bounded observer also records the **raw force inputs while FFB is Off**.
+This fills an evidence gap: ordinary `FFB::Update` returns before calculation
+when FFB is disabled. We do not enable it, invent driver capabilities or claim
+that offline calculation equals an original command stream.
+
+Schema `outrun2006.tick-discovery@3` appends 34 columns to the unchanged 200
+car/camera columns: observation/finite flags, saved FFB enable, requested legacy
+profile and periodic preference, `field_8`, eight raw fields (`1C8`, `1CC`,
+`1D0`, `1D4`, `1DC`, `1E0`, `264`, `268`), four surface masks, collision-load
+type, derived roughness/water and all 13 legacy force settings. Existing speed,
+gear and pedal fields stay in their original columns. No units are relabelled.
+
+The production force calculation and observer share the same four-wheel surface
+aggregation and legacy configuration snapshot. The lookup is the existing
+decompiled Xbox surface table, which reads stage identity and writes only the
+caller's local water flag. The observer never calls the vibration producer or
+opens a native device. `force_output_enabled` is the saved option, **not** an
+actuator-admission or delivery claim. `force_legacy_requested` describes the
+requested profile, not proof of successful model initialization or fallback.
+No dynamic force state, driver-selected periodic route or requested command is
+fabricated when the real producer is off.
+
+Pre rows occur before `FFB::Update` and the original local-car tick; post rows
+occur after the original tick. The analyzer reports only pre-row force-input
+ranges. Invalid force values are retained with `force_inputs_finite=0`; they
+are excluded from those ranges without discarding unrelated pose/camera data.
+Schema 1 and 2 remain readable and never acquire invented force channels.
+
+Offline validation: 402 x86 production-header discovery checks, 12 analyzer
+tests, actual legacy golden/recorder/replay tests, and Release build pass.
+The signal suite confirms unchanged legacy requests and state after the shared
+snapshot/surface refactor. Logs are `build/force-input-discovery-test.log`,
+`build/force-input-signal-test.log`, `build/force-input-build.log`.
+The signal suite intentionally finishes with a negative exit-code case; its
+printed final PASS is authoritative, not that retained `$LASTEXITCODE`.
+
+Source candidate only; peer review and a moving live input window remain pending.
+This does not qualify original force replay, physical normalization, a car-state
+writer or projected triples.

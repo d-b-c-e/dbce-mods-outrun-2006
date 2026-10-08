@@ -13,9 +13,10 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include "force_observation.hpp"
 
 namespace TickDiscovery {
-inline constexpr char Schema[] = "outrun2006.tick-discovery@2";
+inline constexpr char Schema[] = "outrun2006.tick-discovery@3";
 inline constexpr int MinSeconds = 10, MaxSeconds = 120, UpdatesPerSecond = 60;
 inline constexpr long long MaxLeadSeconds = 600; // a request must expire within ten minutes of being read
 inline constexpr std::size_t MaxRequestBytes = 1024, Headroom = 1024;
@@ -98,6 +99,7 @@ struct Observation {
     std::array<float, 3> position{}, velocity{};
     std::array<float, 16> m70{}, mB0{}, mF0{};
     CameraObservation camera;
+    OutRunForceObservation::Sample force;
 };
 // `instance` counts local car objects seen in this window (0 = the first); the window ends at the first change.
 struct Row { Phase phase; std::uint32_t update; std::uint32_t instance; Observation o; };
@@ -195,6 +197,10 @@ inline std::string Tsv(const Session& s) {
         for (char axis : { 'x', 'y', 'z' }) { out += '\t'; out += xyz; out += '_'; out += axis; }
     for (const char* m : CameraMatrixNames)
         for (int r = 1; r <= 4; ++r) for (int c = 1; c <= 4; ++c) { out += '\t'; out += m; out += '_'; out += char('0' + r); out += char('0' + c); }
+    out += "\tforce_inputs_observed\tforce_inputs_finite\tforce_output_enabled\tforce_legacy_requested\tforce_periodic_requested\tfield_8";
+    for (const char* name : OutRunForceObservation::FieldNames) { out += '\t'; out += name; }
+    out += "\tsurface_mask_0\tsurface_mask_1\tsurface_mask_2\tsurface_mask_3\tload_coli_type\tsurface_roughness\tsurface_water";
+    for (const char* name : OutRunForceObservation::ConfigNames) { out += '\t'; out += name; }
     out += '\n';
     out.reserve(out.size() + s.rows.size() * 2200);
     for (const Row& row : s.rows) {
@@ -213,6 +219,13 @@ inline std::string Tsv(const Session& s) {
             Append(out, "\t%.9g", v);
         for (const auto* xyz : { &c.position, &c.look, &c.angle }) for (float v : *xyz) Append(out, "\t%.9g", v);
         for (const auto& m : c.matrices) for (float v : m) Append(out, "\t%.9g", v);
+        const auto& f = o.force;
+        for (double v : {double(f.observed), double(OutRunForceObservation::Finite(f)), double(f.outputEnabled),
+            double(f.legacyRequested), double(f.periodicRequested), double(f.flags)}) Append(out, "\t%.17g", v);
+        for (float v : f.fields) Append(out, "\t%.9g", v);
+        for (auto v : f.surfaceMasks) Append(out, "\t%.17g", double(v));
+        for (double v : {double(f.loadColiType), double(f.roughness), double(f.water)}) Append(out, "\t%.17g", v);
+        for (double v : f.config) Append(out, "\t%.17g", v);
         out += '\n';
     }
     return out;
@@ -230,6 +243,8 @@ inline std::string OutcomeText(const Session& s, std::string_view outcome, std::
     line("evidence", "discovery"); line("replayable", "false"); line("writer", "none");
     line("output", "unchanged (no force, input, telemetry or display change)");
     line("cameraBoundary", "car pre/post; not render; matrix roles and angle/FOV units unqualified");
+    line("forceEvidence", "raw inputs and requested legacy settings only; no calculation, native route or delivered command inferred");
+    line("forceBoundary", "pre is before FFB::Update and original car tick; post is after original car tick; output flag is saved enable, not actuator admission");
     return out;
 }
 

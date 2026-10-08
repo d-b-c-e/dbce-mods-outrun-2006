@@ -69,7 +69,7 @@ static void CameraRows() {
     std::getline(stream, header); std::getline(stream, row);
     auto split = [](const std::string& line) { std::vector<std::string> cells; std::istringstream in(line); std::string v; while (std::getline(in, v, '\t')) cells.push_back(v); return cells; };
     const auto names = split(header), values = split(row);
-    Require(names.size() == 200 && values.size() == 200, "camera extension has fixed named shape");
+    Require(names.size() == 234 && values.size() == 234, "camera and force extension has fixed named shape");
     Require(names[72] == "camera_observed" && values[72] == "1" && values[73] == "1", "observed and finite flags serialized");
     Require(names[75] == "camera_fov_ac" && values[75] == "45" && values[76] == "0.25", "FOV and near plane preserved without unit conversion");
     Require(names[79] == "camera_pos_f8_x" && values[79] == "10" && names[87] == "camera_angle_128_z" && values[87] == "90", "position look angles keep boundaries");
@@ -84,8 +84,64 @@ static void CameraRows() {
     auto bad = o; bad.camera.fov = std::numeric_limits<float>::infinity();
     auto partial = Started(); partial.Observe(Phase::Pre, 0, bad); partial.Observe(Phase::Post, 0, bad);
     Require(partial.failure.empty() && Tsv(partial).find("\t1\t0\t2\tinf\t") != std::string::npos, "invalid camera is explicitly marked and retained, not fatal to car discovery");
-    Require(OutcomeText(s, "observed", "fixture", "fixture", "discovery.tsv").find("schema=outrun2006.tick-discovery@2\n") != std::string::npos,
+    Require(OutcomeText(s, "observed", "fixture", "fixture", "discovery.tsv").find("schema=outrun2006.tick-discovery@3\n") != std::string::npos,
         "new schema does not impersonate old car-only evidence");
+}
+static void ForceRows() {
+    struct InputCar {
+        unsigned field_8 = 0x12345678;
+        float field_1C8 = 1, field_1CC = 2, field_1D0 = 3, field_1D4 = 4,
+            field_1DC = 5, field_1E0 = 6, field_264 = 7, field_268 = 8;
+        unsigned water_flag_24C[4] = {1,2,4,8};
+        struct { int loadColiType_0 = 9; } OnRoadPlace_5C;
+    } car;
+    int calls = 0;
+    auto lookup = [&](unsigned surface, int load, unsigned long* water) {
+        Require(load == 9 && surface == unsigned(1 << calls), "lookup receives four ordered original masks and load type");
+        ++calls; if (surface == 2) *water |= 1u;
+        return surface == 2 ? 0.7 : surface == 4 ? 0.25 : 0.0;
+    };
+    OutRunForceObservation::Configuration config{};
+    for (size_t i = 0; i < config.size(); ++i) config[i] = double(i) / 10;
+    const auto sample = OutRunForceObservation::Read(&car, config, false, true, true, lookup);
+    Require(calls == 4 && sample.observed && !sample.outputEnabled && sample.legacyRequested && sample.periodicRequested,
+        "FFB off still captures inputs without an actuator or model initialization");
+    Require(sample.flags == 0x12345678 && sample.config == config && sample.fields[2] == 3 && sample.fields[7] == 8,
+        "raw fields and settings are read unchanged");
+    Require(sample.roughness == 0.7f && sample.water == 1 && sample.surfaceMasks[2] == 4 && sample.loadColiType == 9,
+        "shared max and accumulated local water flag retain surface meaning");
+    Require(car.field_8 == 0x12345678 && car.field_1D0 == 3 && car.water_flag_24C[1] == 2,
+        "observer leaves car fields unchanged");
+    auto o = Car(); o.force = sample;
+    auto s = Started(); s.Observe(Phase::Pre, 0, o); s.Observe(Phase::Post, 0, o);
+    std::istringstream stream(Tsv(s)); std::string header, row;
+    std::getline(stream, header); std::getline(stream, row);
+    std::vector<std::string> names, values; std::string cell;
+    std::istringstream hs(header), rs(row);
+    while (std::getline(hs, cell, '\t')) names.push_back(cell);
+    while (std::getline(rs, cell, '\t')) values.push_back(cell);
+    Require(names.size() == 234 && values.size() == 234, "force row width matches schema");
+    auto value = [&](const char* name) { auto found = std::find(names.begin(), names.end(), name); Require(found != names.end(), "named force column exists"); return std::stod(values[size_t(found - names.begin())]); };
+    Require(value("force_inputs_observed") == 1 && value("force_inputs_finite") == 1 && value("force_output_enabled") == 0,
+        "actual off flag is not rewritten as muted enabled output");
+    Require(value("field_8") == 0x12345678 && value("field_1d4") == 4 && value("surface_water") == 1,
+        "force integer and scalar inputs round-trip");
+    for (size_t i = 0; i < config.size(); ++i)
+        Require(value(OutRunForceObservation::ConfigNames[i]) == config[i], "configuration doubles round-trip without rounding");
+    for (size_t i = 0; i < sample.fields.size(); ++i) {
+        auto bad = sample; bad.fields[i] = std::numeric_limits<float>::quiet_NaN();
+        Require(!OutRunForceObservation::Finite(bad), "non-finite raw force field is explicitly unavailable");
+    }
+    for (size_t i = 0; i < config.size(); ++i) {
+        auto bad = sample; bad.config[i] = std::numeric_limits<double>::infinity();
+        Require(!OutRunForceObservation::Finite(bad), "non-finite tuning is explicitly unavailable");
+    }
+    o.force.fields[0] = std::numeric_limits<float>::quiet_NaN();
+    auto partial = Started(); partial.Observe(Phase::Pre, 0, o); partial.Observe(Phase::Post, 0, o);
+    Require(partial.failure.empty() && Finite(o) && Tsv(partial).find("\t1\t0\t0\t1\t1\t305419896\t") != std::string::npos,
+        "invalid force values are retained with a false finite flag without losing pose discovery");
+    Require(OutcomeText(s, "observed", "fixture", "fixture", "discovery.tsv").find("no calculation, native route or delivered command inferred") != std::string::npos,
+        "outcome does not claim original force or route");
 }
 static void Ordering() {
     { Session s = Started(); s.Update(1, true); s.Observe(Phase::Pre, 1, Car()); s.Observe(Phase::Post, 1, Car());
@@ -154,7 +210,7 @@ static void Files(const std::wstring& base) {
             outcome.find("replayable=false\n") != std::string::npos && outcome.find("chainOrder:unobserved") != std::string::npos, "observed outcome");
     Require(Count(tsv, '\n') == 7, "header plus six rows");
     const std::string header = tsv.substr(0, tsv.find('\n')), first = tsv.substr(header.size() + 1, tsv.find('\n', header.size() + 1) - header.size() - 1);
-    Require(Count(header, '\t') == 199 && Count(first, '\t') == 199 && header.rfind("phase\tupdate\tcar_instance\t", 0) == 0, "200 named columns in every row, original 72 car columns retained");
+    Require(Count(header, '\t') == 233 && Count(first, '\t') == 233 && header.rfind("phase\tupdate\tcar_instance\t", 0) == 0, "234 named columns in every row, original 200 car/camera columns retained");
     Require(first.rfind("pre\t", 0) == 0 && first.find("\t1.5\t2.25\t-3\t") != std::string::npos, "values round-trip as written");
     Require(!Exists(dirA + L"\\discovery.tsv.tmp") && !Exists(dirA + L"\\outcome.txt.tmp"), "no temporary files left");
 
@@ -252,7 +308,7 @@ int main(int argc, char** argv) {
     try {
         if (argc != 2) throw std::runtime_error("usage: tick-discovery <empty temp folder>");
         std::string a(argv[1]);
-        Parsing(); Ordering(); CameraRows(); Files(std::wstring(a.begin(), a.end()));
+        Parsing(); Ordering(); CameraRows(); ForceRows(); Files(std::wstring(a.begin(), a.end()));
         std::printf("PASS %d tick discovery checks (memory and temp files only; no game, hook or device)\n", checks);
         return 0;
     } catch (const std::exception& e) { std::fprintf(stderr, "FAIL after %d checks: %s\n", checks, e.what()); return 1; }

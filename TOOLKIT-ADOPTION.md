@@ -17,7 +17,7 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-007 | Triple screens in one wide window | unchecked |  |
 | STD-008 | Display changes: game applies once | unchecked |  |
 | STD-009 | Dashboard telemetry matches the HUD | unchecked |  |
-| STD-010 | Install the latest build for testing | adopted | Reviewed private 069fe41 installed for October 7 discovery; 45 package files, three installed runtime payloads and eight restored owner files independently match. Prior runtime backup receipt verified. See docs/2026-10-07-live-discovery-readback.md; no playback/force acceptance inferred. |
+| STD-010 | Install the latest build for testing | adopted | Reviewed private e5b44f8 installed October 8 with 41-export native 50ba139; both runtime hashes and five retained INIs verified. docs/2026-10-08-force-delivery-acknowledgment.md. Later schema-3 source awaits review/live input observation; no physical acceptance inferred. |
 | STD-011 | Work lands on main | adopted | This scoped playback intake was merged/pushed to master; accepted runtime remains independently identified. |
 | STD-012 | Reproduce the route and preserve original signals | pending | 069fe41 source fixes passed 100 discovery/lifecycle/33 independent fault checks, then a stationary Palm Beach discovery produced 5,878 independently checked rows / 2,939 pairs (docs/2026-10-07-live-discovery-readback.md). Complete pose ownership, moving-car units, producer-preserving output mute and gameplay replay remain unfinished. The 128-frame force recorder lacks runtime arm/save. Candidate includes cf6e176 automatic pad-selection fix; prior freeze remains unexplained. |
 | STD-013 | The installed build launches plainly | partial | Repaired copy and prior f021736 passed ordinary startup/offline entry. Claude's 069fe41 plain-launch discovery reached Palm Beach again; retained frames and eight restored owner files independently checked, exit 0 remains reported. Diagnostic pad mappings were temporary; normal owner-wheel driving remains unqualified. |
@@ -41,6 +41,12 @@ October 8 discovery source adds camera observations to the existing bounded
 window (schema 2, 334 fixture checks and Release build pass). It does not promote
 STD-012/015: no pose writer, producer-preserving mute or projected rendering is
 implemented by this change. See `docs/TICK-DISCOVERY.md`.
+
+The later schema-3 source records raw force inputs and requested settings even
+with FFB Off, using the unchanged surface aggregation/configuration shared with
+the existing calculation. 402 discovery checks, 12 analyzer tests and original
+legacy calculation replay pass. Original command/state capture under mute and
+gameplay replay are still unfinished; STD-012/021/025/027 stay pending.
 
 October 8 force delivery follow-up preserves STD-012's distinction between
 requested signals and accepted output: refused native updates no longer advance

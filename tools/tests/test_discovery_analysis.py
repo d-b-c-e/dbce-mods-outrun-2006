@@ -23,10 +23,13 @@ class DiscoveryAnalysisTests(unittest.TestCase):
             row = {k: 0 for k in names}
             row.update(phase="pre" if i % 2 == 0 else "post", update=100 + i // 2,
                        micros=i*100, ticks=1, position_x=(i+1)//2)
-            if version == 2:
+            if version >= 2:
                 row.update(camera_observed=1, camera_finite=1, camera_fov_ac=55)
                 # Camera changes between car callbacks, car changes inside them.
                 row["camera_140_41"] = i//2
+            if version >= 3:
+                row.update(force_inputs_observed=1, force_inputs_finite=1, force_legacy_requested=1,
+                           field_1d0=i / 10, field_264=10+i, ffb_global_strength=0.5)
             rows.append(row)
         if edit:
             edit(rows)
@@ -55,6 +58,37 @@ class DiscoveryAnalysisTests(unittest.TestCase):
         report = module.analyze(self.root)
         self.assertEqual(0, report["cameraValidRows"])
         self.assertNotIn("camera_140", report["changes"])
+
+    def test_force_input_report_uses_pre_only_and_keeps_off(self):
+        self.case(3)
+        report = module.analyze(self.root)
+        self.assertEqual(2, report["forceInputPreRows"])
+        self.assertEqual(0, report["forceOutputEnabledPreRows"])
+        self.assertEqual(12, report["forceInputRanges"]["field_264"]["max"])
+        self.assertIn("no original force calculation", report["forceQualification"])
+        self.assertFalse(report["replayable"])
+
+    def test_invalid_force_input_does_not_invalidate_camera(self):
+        self.case(3, edit=lambda rows: rows[0].update(force_inputs_finite=0, field_1d4=float("nan")))
+        report = module.analyze(self.root)
+        self.assertEqual(1, report["forceInputPreRows"])
+        self.assertEqual(4, report["cameraValidRows"])
+        json.dumps(report, allow_nan=False)
+
+    def test_contradictory_force_flags_refused(self):
+        for change in ({"force_inputs_observed": 0}, {"force_inputs_finite": 2},
+                       {"force_output_enabled": -1}, {"field_264": float("nan")}):
+            with self.subTest(change=change):
+                self.case(3, edit=lambda rows: rows[0].update(change))
+                with self.assertRaisesRegex(ValueError, "force"):
+                    module.analyze(self.root)
+
+    def test_old_schema_never_claims_force_input(self):
+        for version in (1, 2):
+            self.case(version)
+            report = module.analyze(self.root)
+            self.assertEqual(0, report["forceInputPreRows"])
+            self.assertEqual({}, report["forceInputRanges"])
 
     def test_unobserved_or_nonfinite_camera_excluded_not_zero_filled(self):
         def edit(rows):

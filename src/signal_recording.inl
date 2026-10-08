@@ -20,10 +20,7 @@ static State Snapshot() {
     size_t i=22; for(float v:speedHistory)s[i++]=v; for(float v:latHistory)s[i++]=v; return s;
 }
 static Config Configuration() {
-    return {Settings::FFBLateralDeadzone,Settings::FFBGripLoss,Settings::FFBWallImpact,Settings::FFBRoadTexture,
-        Settings::FFBTireSlip,Settings::FFBEngineIdle,Settings::FFBSpringStrength,Settings::FFBDamperStrength,
-        Settings::FFBSteeringWeight,Settings::FFBWeightTransfer,Settings::FFBGearShift,
-        double(Settings::FFBInvertForce),Settings::FFBGlobalStrength};
+    return OutRunForceObservation::ReadConfiguration();
 }
 template<size_t N> static bool Finite(const std::array<double,N>& values) {
     for(double v:values)if(!std::isfinite(v)||std::abs(v)>1e12)return false; return true;

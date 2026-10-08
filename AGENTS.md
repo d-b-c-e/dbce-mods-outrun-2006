@@ -1,5 +1,14 @@
 # OutRun2006Tweaks-FFB working notes
 
+**October 8 current checkpoint:** `e5b44f8` force-delivery candidate installed
+privately with reviewed 41-export native `50ba139`, five INIs retained, no new
+physical test. Later schema-3 discovery source adds raw force inputs/settings
+while FFB remains Off (402 discovery checks, 12 analyzer tests, legacy golden
+replay and Release build pass). It does not fabricate original force commands.
+Read `docs/TICK-DISCOVERY.md` and
+`docs/2026-10-08-force-delivery-acknowledgment.md`; live input-window qualification
+and gameplay replay remain open. Earlier installed-candidate notes are historical.
+
 **October 7 live discovery readback:** the reviewed 069fe41 private candidate is
 now installed (proxy 73432838; native/profile unchanged). Claude's stationary
 Palm Beach case has 5,878 rows / 2,939 ordered pairs, independently checked;

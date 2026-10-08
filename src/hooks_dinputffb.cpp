@@ -25,6 +25,7 @@
 
 #include "hook_mgr.hpp"
 #include "plugin.hpp"
+#include "legacy_force_configuration.hpp"
 #include "game_addrs.hpp"
 #include "game.hpp"
 #include "telemetry.hpp"
@@ -870,13 +871,7 @@ static void SampleSurface(EVWORK_CAR* car, float& roughness, DWORD& waterFlag)
 		// with: asphalt=0.0 (silent), sand=0.25, grass=0.70, rough=0.85-0.9,
 		// water 0.73-0.79 on lake stages (sets waterFlag). Max over 4 tires,
 		// same as the original code.
-		waterFlag = 0;
-		roughness = 0.0f;
-		for (int i = 0; i < 4; i++)
-		{
-			roughness = std::max(roughness, (float)sub_1149C0(
-				car->water_flag_24C[i], (int)car->OnRoadPlace_5C.loadColiType_0, &waterFlag));
-		}
+		OutRunForceObservation::Surface(car, roughness, waterFlag, sub_1149C0);
 
 
 }

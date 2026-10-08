@@ -14,7 +14,7 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-004 | Consistent settings UX | unchecked |  |
 | STD-005 | Camera numpad layout 8/2 9/3 4/6 7/1 +/- 5 | unchecked |  |
 | STD-006 | Camera step sizes are settings | unchecked |  |
-| STD-007 | Triple screens in one wide window | unchecked |  |
+| STD-007 | Triple screens in one wide window | partial (source) | f4e9f01: one borderless window, planar wide view (Surround native; separate monitors via [Triple] Screens). Not angle-correct side views. |
 | STD-008 | Display changes: game applies once | unchecked |  |
 | STD-009 | Dashboard telemetry matches the HUD | unchecked |  |
 | STD-010 | Install the latest build for testing | adopted | Reviewed private e5b44f8 installed October 8 with 41-export native 50ba139; both runtime hashes and five retained INIs verified. docs/2026-10-08-force-delivery-acknowledgment.md. Later schema-3 source awaits review/live input observation; no physical acceptance inferred. |
@@ -22,14 +22,14 @@ Seeded 2026-10-04 from what was verified that day; `unchecked` rows need a look.
 | STD-012 | Reproduce the route and preserve original signals | pending | 069fe41 source fixes passed 100 discovery/lifecycle/33 independent fault checks, then a stationary Palm Beach discovery produced 5,878 independently checked rows / 2,939 pairs (docs/2026-10-07-live-discovery-readback.md). Complete pose ownership, moving-car units, producer-preserving output mute and gameplay replay remain unfinished. The 128-frame force recorder lacks runtime arm/save. Candidate includes cf6e176 automatic pad-selection fix; prior freeze remains unexplained. |
 | STD-013 | The installed build launches plainly | partial | Repaired copy and prior f021736 passed ordinary startup/offline entry. Claude's 069fe41 plain-launch discovery reached Palm Beach again; retained frames and eight restored owner files independently checked, exit 0 remains reported. Diagnostic pad mappings were temporary; normal owner-wheel driving remains unqualified. |
 | STD-014 | Request reciprocal review when progress stalls | adopted | Reviewed Claude's focused retries, reproduced mapping and update-sampling defects, and prepared a tested input candidate for reciprocal review. The responsive probe is not a frozen-process stack; no speculative lifecycle-lock change. See docs/2026-10-06-focused-input-followup.md. |
-| STD-015 | Triples on Surround and separate monitors | unchecked | Native in-race aspect and independent projected views remain unqualified; a wide title/attract window is insufficient. |
+| STD-015 | Triples on Surround and separate monitors | partial (source) | SPN planar only: [Triple] Screens = Separate monitors spans the borderless window over three equal side-by-side monitors (f4e9f01, topology fixture Test-TripleSpan.ps1). Not projected triples; native in-race aspect at 7680 and independent projected views remain unqualified. |
 | STD-016 | Forza Horizon telemetry on by default | unchecked | Encoder/units/defaults require the current release audit; telemetry was temporarily off in the latest menu check, then restored. |
 | STD-017 | Hide empty settings pages | unchecked | Current panel has not been audited against this newer standard. |
 | STD-018 | Handling changes never reach online scores | unchecked | Online/offline eligibility and score paths must be established before any gameplay replay or handling change. |
 | STD-019 | Centre menus and gameplay HUD | unchecked | Title/attract images do not qualify menus, loading, F6 and in-race HUD across the requested layouts. |
 | STD-020 | Standard portfolio feature checklist | partial | All 25 ledger rows explicit as of 2026-10-07; missing STD-021..025 added during discovery review. Pending/unchecked features require evidence, not automatic adoption. |
 | STD-021 | art of rally is the FFB reference | pending | No matched original OutRun force capture or attended comparison against Art at 50; no gain change from discovery. |
-| STD-022 | One triple-screen selector | pending | Off / Surround / Separate monitors requires a qualified projected-triples implementation; native wide aspect alone does not establish it. |
+| STD-022 | One triple-screen selector | partial (config) | OutRun2006Tweaks.ini [Triple] Screens = Off / Surround / Separate monitors (planar span; Off and Surround leave the window as before). No F6 control yet; projected views not implemented. |
 | STD-023 | Frame-rate readout in settings and log | unchecked | Existing framerate hooks have not been audited for the standard 10 s mean/1% low/worst summary and 30 s log. |
 | STD-024 | Optional on-screen frame-rate counter | unchecked | Saved default-off counter, centre-screen placement and render cost have not been audited. |
 | STD-025 | One shared force model for tyre games | pending | Current legacy custom model remains. Research available physical inputs before an AxleForceCurve adapter or a documented arcade exception; named pose fields do not establish tyre-force units. |

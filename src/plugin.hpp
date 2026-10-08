@@ -94,7 +94,8 @@ namespace Settings
 
 	// [Triple] Screens (STD-022): 0 Off, 1 Surround (default: the window as before, which already goes wide on a
 	// Surround desktop), 2 Separate monitors (one borderless window over three equal side-by-side monitors; planar
-	// like Surround, not angle-correct). Separate monitors needs AutoDetectResolution (no outrun2006.ini).
+	// like Surround, not angle-correct). Separate monitors needs AutoDetectResolution (no outrun2006.ini), or an
+	// outrun2006.ini resolution equal to the span.
 	inline int TripleScreens = 1;
 	// Runtime, not read from the INI: the span chosen at start-up, used for the borderless window's position.
 	inline bool TripleSpanActive = false;

@@ -7,6 +7,7 @@
 #include <random>
 #include <algorithm>
 #include <vector>
+#include "triple_span.hpp"
 #include <miniupnpc.h>
 #include <upnpcommands.h>
 #include <WinSock2.h>
@@ -918,8 +919,8 @@ public:
 };
 CommandLineArguments CommandLineArguments::instance;
 
-// The rectangle over exactly three monitors of equal size side by side with no gap ("Sim Racing"); false for any other
-// layout, including Surround, which Windows reports as one display.
+// The monitors as Windows lists them; the span rule itself is the pure TripleSpanFromMonitors (triple_span.hpp,
+// tested offline by tools/tests/Test-TripleSpan.ps1).
 static BOOL CALLBACK CollectMonitor(HMONITOR, HDC, LPRECT rc, LPARAM lp)
 {
 	auto* list = reinterpret_cast<std::vector<RECT>*>(lp);
@@ -930,18 +931,9 @@ static BOOL CALLBACK CollectMonitor(HMONITOR, HDC, LPRECT rc, LPARAM lp)
 static bool SeparateMonitorSpan(RECT& out)
 {
 	std::vector<RECT> r;
-	if (!EnumDisplayMonitors(nullptr, nullptr, CollectMonitor, reinterpret_cast<LPARAM>(&r)) || r.size() != 3)
+	if (!EnumDisplayMonitors(nullptr, nullptr, CollectMonitor, reinterpret_cast<LPARAM>(&r)))
 		return false;
-	std::sort(r.begin(), r.end(), [](const RECT& a, const RECT& b) { return a.left < b.left; });
-	for (size_t i = 0; i < r.size(); i++)
-	{
-		if (r[i].top != r[0].top || r[i].bottom != r[0].bottom || r[i].right - r[i].left != r[0].right - r[0].left)
-			return false;
-		if (i && r[i].left != r[i - 1].right)
-			return false;
-	}
-	out = { r[0].left, r[0].top, r[2].right, r[0].bottom };
-	return true;
+	return TripleSpanFromMonitors(r, out);
 }
 
 class GameDefaultConfigOverride : public Hook
@@ -976,8 +968,9 @@ public:
 				return false; // bail out if resolution is less than the default
 
 			// [Triple] Screens = Separate monitors: the span of three equal side-by-side monitors instead. The borderless
-			// window is placed at the span's corner (WindowedBorderless) only while the resolution is still the span,
-			// so an outrun2006.ini with its own resolution keeps the configured position.
+			// window is placed at the span's corner (WindowedBorderless) whenever the final resolution equals the span:
+			// an outrun2006.ini resolution that differs keeps the configured position, one equal to the span gets the
+			// span's corner too.
 			if (Settings::TripleScreens == 2)
 			{
 				RECT span{};

@@ -29,6 +29,7 @@
 #include "game_addrs.hpp"
 #include "game.hpp"
 #include "telemetry.hpp"
+#include "hud_speed.hpp"
 #include "wheelffb.h"      // dbce-wheel-mod-toolkit C ABI (lib/toolkit/include)
 #include "force_profile.h" // shared force model + versioned tuning profiles
 #include "overlay/overlay.hpp"
@@ -90,7 +91,10 @@ namespace Telemetry
 	static const float GearRatios[] = { 0.0f, 3.5f, 2.1f, 1.4f, 1.0f, 0.8f, 0.65f };
 	static const float MaxRPM = 8500.0f;
 	static const float IdleRPM = 900.0f;
-	static const float MaxSpeedMps = 90.0f; // ~324 km/h, OutRun top speed approx
+	// Retained for the existing force-model arithmetic, not dashboard speed.
+	static const float MaxSpeedMps = 90.0f;
+	static bool hudSpeedInvalidReported = false;
+	static bool hudSpeedRecoveryReported = false;
 
 	static bool Init()
 	{
@@ -184,9 +188,19 @@ namespace Telemetry
 			sled.isRaceOn = inGameplay ? 1 : 0;
 			sled.timestampMs = GetTickCount();
 
-			// Speed: convert normalized (0-2+) to m/s
-			float speedMps = car->field_1C4 * MaxSpeedMps;
-			dash.speed = speedMps;
+			// Match the game's HUD base rather than assuming a universal top speed.
+			// The shared-memory v1 raw-speed ABI above remains unchanged.
+			if (!OutRunHudSpeed::TryMetresPerSecond(car->field_1F8, dash.speed)) {
+				if (!hudSpeedInvalidReported) {
+					hudSpeedInvalidReported = true;
+					spdlog::warn("Telemetry: invalid HUD speed observation; Forza packet skipped, not reported as zero");
+				}
+				return;
+			}
+			if (hudSpeedInvalidReported && !hudSpeedRecoveryReported) {
+				hudSpeedRecoveryReported = true;
+				spdlog::info("Telemetry: HUD speed observation recovered; Forza packets resumed");
+			}
 
 			// Gear
 			uint32_t gear = car->cur_gear_208;

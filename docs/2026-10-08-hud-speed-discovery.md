@@ -79,3 +79,18 @@ The game and pad closed normally. Nine owner files, complete root file inventory
 and both installed payloads were verified exact before the lease was released.
 Evidence, sealed captures, replay, source hashes and `hud-frame-comparison.json`
 are under `_archive/2026-10-08/outrun-hud-20261008-152635`.
+
+## Forza correction candidate
+
+The subsequent source candidate changes only FM7 Dash Speed: valid, nonnegative
+HUD base / 3.6 is encoded in metres/second. Invalid observations skip that UDP
+packet, with one first-invalid and one first-recovery log per process; they do
+not become measured zeros. The version-1 shared-memory raw-speed ABI stays as-is.
+The old 90 m/s scale remains available to the unchanged force-model arithmetic;
+removing that dependency would change force behavior and is outside this fix.
+
+`tools/tests/Test-HudSpeed.ps1` passes 41 x86 checks through the actual vendored
+311-byte FM7 encoder (captured range, known units, speed offset, invalid values).
+The full x86 Release build and original force/recording/mute regression pass.
+This telemetry correction has not been packaged or installed. Live UDP delivery
+and mph/all-car checks remain open; the muted test above sent no telemetry.

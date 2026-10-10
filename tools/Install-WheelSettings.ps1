@@ -36,6 +36,17 @@ function Hash([string]$path) { (Get-FileHash -LiteralPath $path -Algorithm SHA25
 Assert-Closed
 $runtime = @('dinput8.dll','WheelFfb.dll')
 $seed = @('OutRun2006Tweaks.ini','OutRun2006Tweaks.lods.ini','force-profiles.ini')
+# STD-033: the stable rig-profile controls receipt Wheelkit reads. Written only for a package whose manifest declares the
+# reviewed capability, removed when a package without it is installed, and restored together with the runtime.
+$capabilityName = 'dbce-outrun2006-controls.json'
+$capabilityPath = Join-Path $game $capabilityName
+function Write-Capability($Receipt) {
+    $temp = $capabilityPath + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
+    try {
+        [IO.File]::WriteAllText($temp, ($Receipt | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
+        Move-Item -LiteralPath $temp -Destination $capabilityPath -Force
+    } finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Force } }
+}
 $proxyProvenance = [ordered]@{classification='none'; fileVersion=$null; product=$null; sha256=$null}
 $proxyPath = Join-Path $game 'dinput8.dll'
 if (Test-Path -LiteralPath $proxyPath) {
@@ -53,7 +64,7 @@ if (Test-Path -LiteralPath $proxyPath) {
 }
 $preserved = @()
 foreach ($file in Get-ChildItem -LiteralPath $game -File) {
-    if ($file.Extension -in '.ini','.cfg','.json','.xml') {
+    if ($file.Extension -in '.ini','.cfg','.json','.xml' -and $file.Name -ne $capabilityName) {
         $preserved += [pscustomobject]@{ name = $file.Name; sha256 = Hash $file.FullName }
     }
 }
@@ -75,11 +86,16 @@ if ($Action -eq 'Restore') {
         }
         if ($item.existed -and (Hash (Join-Path $backup $item.name)) -ne $item.previousSha256) { throw 'Backup hash mismatch.' }
     }
+    if ($receipt.capability -and $receipt.capability.existed -and (Hash (Join-Path $backup $capabilityName)) -ne $receipt.capability.previousSha256) { throw 'Backup hash mismatch: controls receipt.' }
     Assert-Closed
     foreach ($item in $receipt.runtime) {
         $destination = Join-Path $game $item.name
         if ($item.existed) { Copy-Item -LiteralPath (Join-Path $backup $item.name) -Destination $destination -Force }
         else { Remove-Item -LiteralPath $destination }
+    }
+    if ($receipt.capability) {
+        if ($receipt.capability.existed) { Copy-Item -LiteralPath (Join-Path $backup $capabilityName) -Destination $capabilityPath -Force }
+        elseif (Test-Path -LiteralPath $capabilityPath) { Remove-Item -LiteralPath $capabilityPath }
     }
     Assert-Preserved
     Write-Host "Restored runtime from $backup. Settings and added profile/template files retained."
@@ -122,10 +138,16 @@ foreach ($name in $runtime) {
     }
     $records += [pscustomobject]@{name=$name; existed=$exists; previousSha256=$previous; installedSha256=(Hash (Join-Path $package $name))}
 }
+$capability = [ordered]@{existed=(Test-Path -LiteralPath $capabilityPath); previousSha256=$null; written=$null; removed=$false}
+if ($capability.existed) {
+    $capability.previousSha256 = Hash $capabilityPath
+    Copy-Item -LiteralPath $capabilityPath -Destination (Join-Path $backup $capabilityName)
+    if ((Hash (Join-Path $backup $capabilityName)) -ne $capability.previousSha256) { throw 'Backup verification failed: controls receipt' }
+}
 $settingsBackup = Join-Path $backup 'settings'
 New-Item -ItemType Directory -Path $settingsBackup | Out-Null
 foreach ($file in $preserved) { Copy-Item -LiteralPath (Join-Path $game $file.name) -Destination (Join-Path $settingsBackup $file.name) }
-$receipt = [ordered]@{schemaVersion=1; gameDirectory=$game; packageSource=$manifest.sourceCommit; packageRuntimeSource=$manifest.runtimeSourceCommit; packageInstallerSource=$manifest.installerSourceCommit; installedUtc=[DateTime]::UtcNow.ToString('o'); previousProxy=$proxyProvenance; runtime=$records; preserved=$preserved; seeded=@(); status='prepared'}
+$receipt = [ordered]@{schemaVersion=1; gameDirectory=$game; packageSource=$manifest.sourceCommit; packageRuntimeSource=$manifest.runtimeSourceCommit; packageInstallerSource=$manifest.installerSourceCommit; installedUtc=[DateTime]::UtcNow.ToString('o'); previousProxy=$proxyProvenance; runtime=$records; capability=$capability; preserved=$preserved; seeded=@(); status='prepared'}
 $receiptPath = Join-Path $backup 'receipt.json'
 $receipt | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receiptPath -Encoding UTF8
 $changed = @()
@@ -145,6 +167,16 @@ try {
             $receipt.seeded += $name
         }
     }
+    # Only the exact runtime this package installed may be advertised; a package without the capability withdraws it.
+    if ($manifest.controlsProfileSchema -eq 1 -and $manifest.controlsAdapter -eq 'outrun-remap-1') {
+        Write-Capability ([ordered]@{schemaVersion=1; file='dinput8.dll'; sha256=(Hash (Join-Path $game 'dinput8.dll')); wheelFfbSha256=(Hash (Join-Path $game 'WheelFfb.dll'))
+            controlsProfileSchema=1; adapter='outrun-remap-1'; profileSection='WheelkitProfile'; userIni='OutRun2006Tweaks.user.ini'
+            runtimeSourceCommit=$manifest.runtimeSourceCommit; installedUtc=[DateTime]::UtcNow.ToString('o'); backupDirectory=$backup})
+        $capability.written = Hash $capabilityPath
+    } elseif ($capability.existed) {
+        Remove-Item -LiteralPath $capabilityPath
+        $capability.removed = $true
+    }
     Assert-Preserved
     $receipt.status = 'installed'
     $receipt | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receiptPath -Encoding UTF8
@@ -158,6 +190,10 @@ try {
             elseif (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination }
         } catch { $rollbackErrors += $_.Exception.Message }
     }
+    try {
+        if ($capability.existed) { Copy-Item -LiteralPath (Join-Path $backup $capabilityName) -Destination $capabilityPath -Force }
+        elseif (Test-Path -LiteralPath $capabilityPath) { Remove-Item -LiteralPath $capabilityPath }
+    } catch { $rollbackErrors += $_.Exception.Message }
     $receipt.status = 'failed'; $receipt.rollbackErrors = $rollbackErrors
     $receipt | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $receiptPath -Encoding UTF8
     throw "Install failed: $failure. Backup: $backup. Rollback errors: $($rollbackErrors -join '; ')"

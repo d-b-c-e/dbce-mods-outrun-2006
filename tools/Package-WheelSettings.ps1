@@ -50,6 +50,10 @@ Copy-Item -LiteralPath (Join-Path $root 'docs/NATIVE-PIN-2026-09-17.md') -Destin
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE.md') -Destination $out
 $files = foreach ($file in Get-ChildItem -LiteralPath $out -Recurse -File) { [ordered]@{name=$file.FullName.Substring($out.Length+1).Replace('\','/'); sha256=(Get-FileHash -LiteralPath $file.FullName).Hash.ToLowerInvariant()} }
 $manifest = [ordered]@{schemaVersion=2; architecture='x86'; sourceCommit=$runtimeCommit; runtimeSourceCommit=$runtimeCommit; installerSourceCommit=$packagingCommit; packagingSourceCommit=$packagingCommit; sourceDirty=[bool](& git -C $root status --porcelain); builtUtc=(Get-Item -LiteralPath (Join-Path $out 'dinput8.dll')).LastWriteTimeUtc.ToString('o'); baselineToolkit='v0.8.0'; nativeToolkitOverride='v0.13.0'; nativeComponent='0.6.0'; distributionReady=(@($noticeIndex.distributionBlockers).Count -eq 0); reviewOnly=[bool]$ReviewOnly; files=@($files)}
+# STD-033: declare the rig-profile controls capability only for an exact reviewed runtime commit
+# (tools/controls-capability.json); the installer turns it into the game-folder receipt Wheelkit reads.
+. (Join-Path $PSScriptRoot 'ControlsCapability.ps1')
+$capability = Get-ControlsCapability $runtimeCommit (Join-Path $PSScriptRoot 'controls-capability.json') ($capability) { foreach ($k in $capability.Keys) { $manifest[$k] = $capability[$k] } }
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $out 'package-manifest.json') -Encoding UTF8
 Assert-PackageInventory $out -ForDistribution:(-not $ReviewOnly)
 Compress-Archive -LiteralPath $out -DestinationPath ($out + '.zip')

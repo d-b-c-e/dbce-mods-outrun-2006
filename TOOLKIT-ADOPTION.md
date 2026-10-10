@@ -76,3 +76,8 @@ reads the profile from `[WheelkitProfile]` in `OutRun2006Tweaks.user.ini` (Tweak
 per Astra 3507). The remap's button keys also take POV directions (`src/pov_binding.hpp`). A new revision becomes the DirectInput remap's `.user.ini` keys in one atomic edit before the INIs are read.
 `tools/Test-ProfileControls.ps1`: 75 offline checks, MSVC x86 `/W4 /WX`. In-game observation and owner acceptance
 pending.
+Capability receipt (2026-10-10): `tools/controls-capability.json` lists the exact runtime commits whose adapter passed
+review (none yet). Package-WheelSettings declares `controlsProfileSchema`/`controlsAdapter` in the manifest only for
+those commits. Install-WheelSettings writes `dbce-outrun2006-controls.json` in the game folder with the installed
+dinput8/WheelFfb hashes. A package without the capability withdraws the receipt, a failed install rolls it back, and
+Restore returns it with the runtime. `tools/tests/Test-ControlsCapability.ps1`: 24 checks, PowerShell 7 and 5.1.

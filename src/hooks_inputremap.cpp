@@ -515,6 +515,8 @@ namespace DInputRemap
 		HRESULT hr = slot.device->GetDeviceState(sizeof(DIJOYSTATE2), &slot.currentState);
 		if (hr == DIERR_INPUTLOST || hr == DIERR_NOTACQUIRED)
 		{
+			// Input was lost: a running test sample (remap_inject.hpp) must not cross the reacquire.
+			RemapInject::DeviceGone(slot.guid);
 			slot.device->Acquire();
 			hr = slot.device->GetDeviceState(sizeof(DIJOYSTATE2), &slot.currentState);
 		}

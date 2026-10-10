@@ -49,7 +49,8 @@ namespace RemapInject
 	struct ObserveData
 	{
 		uint32_t version;      // 1
-		uint32_t packetId;     // incremented after each update's fields are written
+		uint32_t packetId;     // a sequence: odd while an update's fields are written, even when they are whole.
+		                       // A reader keeps a copy only when packetId was the same even value before and after it.
 		uint32_t tickMs;       // GetTickCount of the update
 		float speed;           // EVWORK_CAR field_1C4, as OutRun2006Telemetry's speed
 		float steer;           // EVWORK_CAR field_1D0, as OutRun2006Telemetry's steeringAngle
@@ -61,7 +62,9 @@ namespace RemapInject
 	};
 #pragma pack(pop)
 	static_assert(sizeof(ObserveData) == 36, "ObserveData layout");
-	void Observe(float speed, float steer, int pedal, uint32_t gear, uint32_t gameMode, bool inGameplay);
+	// Returns whether the update was published. The mapping is created by this process or not at all: one that already
+	// exists (another writer, or a reader that created it) is refused and nothing is published for the run.
+	bool Observe(float speed, float steer, int pedal, uint32_t gear, uint32_t gameMode, bool inGameplay);
 	std::string ObserveName();   // "" when not armed
 
 	// Tests only: arm without files or environment (lines = the applied [Controls] body; nonce "test", no expiry), feed

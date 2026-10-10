@@ -282,23 +282,38 @@ namespace RemapInject
 		return "Local\\DbceOutRunInjectObserve-" + g_nonce;
 	}
 
-	void Observe(float speed, float steer, int pedal, uint32_t gear, uint32_t gameMode, bool inGameplay)
+	bool Observe(float speed, float steer, int pedal, uint32_t gear, uint32_t gameMode, bool inGameplay)
 	{
-		if (!g_armed) return;
+		if (!g_armed) return false;
 		static ObserveData* view = nullptr;
 		static bool failed = false;
 		if (!view && !failed)
 		{
 			const std::string name = ObserveName();
+			failed = true;
 			HANDLE map = CreateFileMappingA(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(ObserveData), name.c_str());
-			view = map ? static_cast<ObserveData*>(MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(ObserveData))) : nullptr;
-			if (!view) { failed = true; Log("observation mapping " + name + " failed (" + std::to_string(GetLastError()) + ")"); return; }
+			const DWORD error = GetLastError();
+			if (!map) { Log("observation mapping " + name + " failed (" + std::to_string(error) + ")"); return false; }
+			if (error == ERROR_ALREADY_EXISTS)
+			{
+				CloseHandle(map);
+				Log("observation mapping " + name + " already exists; refused, nothing published");
+				return false;
+			}
+			auto* v = static_cast<ObserveData*>(MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(ObserveData)));
+			if (!v) { Log("observation mapping " + name + " could not be mapped (" + std::to_string(GetLastError()) + ")"); CloseHandle(map); return false; }
 			// The mapping lives as long as the process: one per armed run.
-			*view = ObserveData{};
-			view->version = 1;
+			*v = ObserveData{};
+			v->version = 1;
+			view = v;
+			failed = false;
 			Log("observation published as " + name);
 		}
-		if (!view) return;
+		if (!view) return false;
+		// Sequence: odd while writing, even when whole (see ObserveData).
+		auto* seq = reinterpret_cast<volatile LONG*>(&view->packetId);
+		InterlockedIncrement(seq);
+		MemoryBarrier();
 		view->tickMs = GetTickCount();
 		view->speed = speed;
 		view->steer = steer;
@@ -307,7 +322,8 @@ namespace RemapInject
 		view->gameMode = gameMode;
 		view->inGameplay = inGameplay ? 1 : 0;
 		MemoryBarrier();
-		++view->packetId;
+		InterlockedIncrement(seq);
+		return true;
 	}
 
 	void DeviceGone(const GUID& instance)

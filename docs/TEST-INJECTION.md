@@ -11,7 +11,8 @@ DirectInput instance replace their objects right after a successful read. That i
 edge, H-pattern or UI read, so the game takes an injected sample exactly as it takes the wheel:
 - Axes are mapped into the range the device reports (`DIPROP_RANGE`).
 - Buttons and POVs beyond the device's capabilities are never delivered.
-- A failed read, or a released slot (UI replacement, unused input, exit), drops that instance's samples.
+- Lost input (`DIERR_INPUTLOST`/`NOTACQUIRED`, before the reacquire), a failed read, or a released slot (UI
+  replacement, unused input, exit) drops that instance's samples.
 
 ## When it arms
 
@@ -53,6 +54,10 @@ shaker output. While injection is armed, each FFB update copies the game's own c
 holds 36 bytes, `RemapInject::ObserveData`:
 - `speed` and `steer`: EVWORK_CAR `field_1C4` and `field_1D0`, as OutRun2006Telemetry has them;
 - `pedal`: `pedal_amount_34`, the game's throttle;
-- `gear`, the game mode, in-gameplay, and a packet counter.
+- `gear`, the game mode, in-gameplay, and `packetId`.
+
+`packetId` is a sequence: it is odd while an update is written and even when the update is whole. A reader keeps a copy only
+when it saw the same even value before and after reading. The mapping is created by the game or not at all: one that
+already exists (another writer, or a reader that made it first) is refused, and nothing is published for that run.
 
 Nothing is published when not armed.

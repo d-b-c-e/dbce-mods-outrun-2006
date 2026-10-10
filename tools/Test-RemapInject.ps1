@@ -1,6 +1,6 @@
 # Builds and runs tests/remap_inject_test.cpp (dev-only test injection for the DirectInput remap) with MSVC x86, the
-# game's architecture, twice: unmuted (requests refused) and with DBCE_OUTRUN_SIGNAL_MUTE set (arming). Offline: no game,
-# device or force.
+# game's architecture, in three processes: unmuted (requests refused), with DBCE_OUTRUN_SIGNAL_MUTE set (arming), and with
+# the observation mapping already present (refused). Offline: no game, device or force.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $vs = & (Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe') -latest -products * -property installationPath
@@ -15,4 +15,5 @@ if ($LASTEXITCODE) { $text | Select-Object -Last 20; throw 'remap inject test bu
 & $exe 2>$null; $unmuted = $LASTEXITCODE
 $env:DBCE_OUTRUN_SIGNAL_MUTE = 'legacy'
 try { & $exe --muted 2>$null; $mutedExit = $LASTEXITCODE } finally { Remove-Item Env:DBCE_OUTRUN_SIGNAL_MUTE }
-if ($unmuted -or $mutedExit) { throw "remap inject checks failed (unmuted $unmuted, muted $mutedExit)" }
+& $exe --existing 2>$null; $existingExit = $LASTEXITCODE
+if ($unmuted -or $mutedExit -or $existingExit) { throw "remap inject checks failed (unmuted $unmuted, muted $mutedExit, existing mapping $existingExit)" }

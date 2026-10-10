@@ -111,9 +111,25 @@ static int muted()
     return g_failed ? 1 : 0;
 }
 
+// Third process: a mapping that already exists under the session's name is never written (another writer, or a reader
+// that created it first).
+static int existing()
+{
+    HANDLE squatter = CreateFileMappingA(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(RemapInject::ObserveData),
+                                         "Local\\DbceOutRunInjectObserve-test");
+    const auto* o = squatter ? static_cast<const RemapInject::ObserveData*>(MapViewOfFile(squatter, FILE_MAP_READ, 0, 0, sizeof(RemapInject::ObserveData))) : nullptr;
+    check(o != nullptr, "fixture: a pre-existing mapping");
+    check(RemapInject::TestArm(profile()), "test arm");
+    check(!RemapInject::Observe(0.5f, 0.1f, 255, 2, 7, true) && !RemapInject::Observe(0.5f, 0.1f, 255, 2, 7, true), "an existing mapping is refused, every update");
+    check(o && o->version == 0 && o->packetId == 0 && o->speed == 0.0f, "nothing written into it");
+    std::printf("RemapInject (existing mapping process): %d checks, %d failed\n", g_checks, g_failed);
+    return g_failed ? 1 : 0;
+}
+
 int main(int argc, char** argv)
 {
     if (argc > 1 && !std::strcmp(argv[1], "--muted")) return muted();
+    if (argc > 1 && !std::strcmp(argv[1], "--existing")) return existing();
 
     // This process is not signal-muted: a request is refused, whatever else holds.
     {
@@ -137,13 +153,13 @@ int main(int argc, char** argv)
     {
         // The observer: the game's car words in a mapping named for the session, updated per FFB update.
         check(RemapInject::ObserveName() == "Local\\DbceOutRunInjectObserve-test", "observation name carries the session nonce");
-        RemapInject::Observe(0.5f, -0.25f, 200, 3, 7, true);
+        check(RemapInject::Observe(0.5f, -0.25f, 200, 3, 7, true), "first update published");
         HANDLE map = OpenFileMappingA(FILE_MAP_READ, FALSE, "Local\\DbceOutRunInjectObserve-test");
         const auto* o = map ? static_cast<const RemapInject::ObserveData*>(MapViewOfFile(map, FILE_MAP_READ, 0, 0, sizeof(RemapInject::ObserveData))) : nullptr;
-        check(o && o->version == 1 && o->packetId == 1 && o->speed == 0.5f && o->steer == -0.25f && o->pedal == 200 && o->gear == 3 &&
+        check(o && o->version == 1 && o->packetId == 2 && o->speed == 0.5f && o->steer == -0.25f && o->pedal == 200 && o->gear == 3 &&
               o->gameMode == 7 && o->inGameplay == 1, "observation published");
         RemapInject::Observe(0.6f, 0.0f, 0, 3, 7, true);
-        check(o && o->packetId == 2 && o->speed == 0.6f && o->pedal == 0, "each update advances the packet");
+        check(o && o->packetId == 4 && o->speed == 0.6f && o->pedal == 0, "each update leaves an even sequence, two further on");
         if (o) UnmapViewOfFile(o);
         if (map) CloseHandle(map);
     }

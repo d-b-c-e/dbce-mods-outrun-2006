@@ -101,8 +101,9 @@ int main()
     check(key(p, "DirectInput", "ButtonChangeView") == "32", "camera");
     check(key(p, "DirectInput", "ButtonSelUp") == "128" && key(p, "DirectInput", "ButtonSelRight") == "129" &&
           key(p, "DirectInput", "ButtonSelDown") == "130" && key(p, "DirectInput", "ButtonSelLeft") == "131", "hat menus as POV directions");
-    check(key(p, "DirectInput", "ButtonGearUp") == "<absent>" && key(p, "DirectInput", "ButtonX") == "<absent>",
-          "primary keys outside the profile untouched while the primary device is unset");
+    // No saved primary identity: the game auto-selects a device, so its old buttons are not the profile wheel's (3674).
+    check(key(p, "DirectInput", "ButtonGearUp") == "-1" && key(p, "DirectInput", "ButtonX") == "-1" &&
+          noted(p, "DirectInput ButtonX: cleared"), "an unset primary identity clears primary keys outside the profile");
     check(key(p, "DirectInput.Shifter", "DeviceGuid") == SHIFTER_UPPER, "shifter slot device");
     check(key(p, "DirectInput.Shifter", "ButtonGearUp") == "9" && key(p, "DirectInput.Shifter", "ButtonGearDown") == "10", "sequential shifts");
     check(key(p, "DirectInput.Shifter", "ButtonGear1") == "0" && key(p, "DirectInput.Shifter", "ButtonGear6") == "5" &&
@@ -142,6 +143,10 @@ int main()
     check(key(wheelSwap, "DirectInput", "ButtonX") == "-1" && key(wheelSwap, "DirectInput", "ButtonA") == "31", "a different primary wheel keeps no old buttons");
     Current samePrimary; samePrimary.primaryDev = WHEEL_UPPER;
     check(key(one("confirm = button 31 " WHEEL, samePrimary), "DirectInput", "ButtonX") == "<absent>", "same primary wheel: extras kept");
+    Current autoPrimary; autoPrimary.primaryDev = "auto";
+    check(key(one("confirm = button 31 " WHEEL, autoPrimary), "DirectInput", "ButtonX") == "-1", "auto primary: extras cleared");
+    check(key(one("confirm = button 31 " WHEEL), "DirectInput", "ButtonX") == "-1" &&
+          key(one("confirm = button 31 " WHEEL), "DirectInput", "ButtonA") == "31", "unset primary: extras cleared, profile buttons kept");
 
     // POV directions: the encoding and the contract's hat rule (a diagonal presses both neighbours).
     check(PovBinding::Encode(0, 27000) == 131 && PovBinding::Encode(1, 0) == 132 && PovBinding::Encode(3, 9000) == 141, "POV encode");
@@ -151,7 +156,7 @@ int main()
     check(PovBinding::Pressed(31500, 128) && PovBinding::Pressed(31500, 131), "POV wraps at 36000");
     check(!PovBinding::Pressed(0xFFFFFFFFul, 128) && !PovBinding::Pressed(0x0000FFFFul, 130) && !PovBinding::Pressed(0, 127) &&
           !PovBinding::Pressed(0, 144), "centred POV and non-POV bindings");
-    Plan t = one("navUp = hat 0 4500 " WHEEL);
+    Plan t = one("navUp = hat 0 4500 " WHEEL, samePrimary);
     check(key(t, "DirectInput", "ButtonSelUp") == "<absent>" && noted(t, "navUp: a diagonal hat direction"), "diagonal hat refused");
     t = one("confirm = hat 2 18000 " SHIFTER);
     check(key(t, "DirectInput.Aux", "ButtonA") == "138", "a hat on another device -> Aux POV");
@@ -212,6 +217,14 @@ int main()
     check(!current("[Controls]\nUseNewInput = true\n", "[Controls]\nUseNewInput = off\n").useNewInput, "user over main");
     check(current("", "[DirectInput.Aux]\nDeviceGuid = " OTHER_UPPER "\n").auxDev == OTHER_UPPER, "slot owner read");
     check(current("", "[directinput]\nDeviceGuid = " OTHER_UPPER "\n").primaryDev.empty(), "the game does not read [directinput]");
+    // Main and user both without a primary identity, an owner ButtonX present: absence is no proof, so ButtonX is cleared.
+    Current noIdentity = current("[DirectInput]\nButtonX = 7\n", "[DirectInput]\nButtonY = 6\n");
+    Plan unproven = one("confirm = button 31 " WHEEL, noIdentity);
+    check(noIdentity.primaryDev.empty() && key(unproven, "DirectInput", "ButtonX") == "-1" && key(unproven, "DirectInput", "ButtonY") == "-1",
+          "no identity in either file: owner extras cleared");
+    Current emptyIdentity = current("", "[DirectInput]\nDeviceGuid =\nButtonX = 7\n");
+    check(emptyIdentity.primaryDev.empty() && key(one("confirm = button 31 " WHEEL, emptyIdentity), "DirectInput", "ButtonX") == "-1",
+          "an empty DeviceGuid (auto-select) clears like auto");
     fs::remove(mainIni, ec);
 
     // The user INI transaction.
@@ -239,7 +252,8 @@ int main()
     check(slurp(backup) == owner, "backup holds the original bytes");
     check(applied.find("[Controls]\r\nUseNewInput = false\r\nSteeringDeadZone = 0\r\n[DirectInput]\r\n") == 0, "Tweaks' own [Controls] untouched, CRLF kept");
     check(applied.find("BrakeMinimum = 1743\r\n") != std::string::npos && applied.find("BrakeMinimum = 0") == std::string::npos, "brake minimum replaced in place");
-    check(applied.find("ButtonGearUp = 13\r\n") != std::string::npos, "owner keys outside the profile kept");
+    check(applied.find("ButtonGearUp = -1\r\n") != std::string::npos && applied.find("ButtonGearUp = 13") == std::string::npos,
+          "a primary button with no saved identity behind it is cleared in place");
     check(applied.find("ButtonSelUp = 128\r\n") != std::string::npos && applied.find("ButtonSelUp = 8") == std::string::npos, "the profile's hat replaces the menu button in place");
     check(applied.find("[WheelSettings]\r\nView = Simple\r\n") != std::string::npos && applied.find("[FFB]\r\nDirectInputFFB = true\r\n") != std::string::npos, "other sections kept");
     check(read(user, "DirectInput", "DeviceGuid") == WHEEL_UPPER && read(user, "DirectInput.Shifter", "GearMode") == "sequential" &&

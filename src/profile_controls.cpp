@@ -86,13 +86,14 @@ struct Builder
         note(action, std::string("the remap's ") + section + " slot already holds another device");
         return false;
     }
-    // A slot given a different device keeps no button number from the old one.
+    // A slot given a different device keeps no button number from the old one. A slot with no saved identity (missing,
+    // empty or "auto") counts as a change: the primary slot then auto-selects a device (hooks_inputremap.cpp InitSlot),
+    // so its old buttons are not proof of belonging to the profile's wheel (Astra 3674).
     template <size_t N>
-    void clearOnChange(const char* section, const std::string& planned, const std::string& current, bool unsetIsChange,
-        const char* const (&keys)[N])
+    void clearOnChange(const char* section, const std::string& planned, const std::string& current, const char* const (&keys)[N])
     {
         if (planned.empty()) return;
-        const bool changed = current.empty() ? unsetIsChange : !iequal(current, guidText(planned));
+        const bool changed = current.empty() || !iequal(current, guidText(planned));
         if (!changed) return;
         for (const char* k : keys)
             if (!has(section, k)) {
@@ -291,9 +292,9 @@ Plan PlanLines(const std::vector<std::string>& lines, const Current& current)
         else if (!iequal(s.transmission, "Sequential"))
             b.note("transmission", "'" + s.transmission + "': the race gearbox is chosen in the game; the shifter slot is set to sequential");
     }
-    b.clearOnChange(Remap, primary, current.primaryDev, false, kSlotButtons);
-    b.clearOnChange(Aux, b.auxDev, current.auxDev, true, kSlotButtons);
-    b.clearOnChange(Shifter, b.shifterDev, current.shifterDev, true, kShifterButtons);
+    b.clearOnChange(Remap, primary, current.primaryDev, kSlotButtons);
+    b.clearOnChange(Aux, b.auxDev, current.auxDev, kSlotButtons);
+    b.clearOnChange(Shifter, b.shifterDev, current.shifterDev, kShifterButtons);
     for (const std::string& a : s.unbound) b.note(a, "unbound in the profile; the remap keeps its value");
     p.ok = !p.keys.empty();
     if (!p.ok) p.error = "no binding the remap can use";

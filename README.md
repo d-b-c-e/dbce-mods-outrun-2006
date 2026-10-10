@@ -96,6 +96,24 @@ through 60 Hz constant-force updates loses about a quarter to zero-order-hold
 roll-off and more again to the compressor. If the driver offers no periodics,
 a constant-force fallback synthesises them, capped at 15 Hz.
 
+### Rig-profile controls (STD-033, source only)
+
+Wheelkit can write a rig profile into `OutRun2006Tweaks.profile.ini`, as a `[Controls]` section in the toolkit's
+format (`docs/controls-contract.md`). It is a file of its own because Tweaks already has a `[Controls]` section. At
+start, before the INIs are read, a new revision becomes the DirectInput remap's own keys in
+`OutRun2006Tweaks.user.ini`, the ones F6 saves:
+
+| Profile | Remap keys |
+| --- | --- |
+| steer | `[DirectInput]` DeviceGuid, SteeringAxis, SteeringInvert; `[DirectInput.Calibration]` SteeringEnabled = false (range-centred, as the contract) |
+| throttle / brake | AccelerationAxis/BrakeAxis, Invert, Throttle/BrakeDeviceGuid and Name; calibration from the captured rest to the full end |
+| confirm, back, start, select, camera, menu buttons | ButtonA, ButtonB, ButtonStart, ButtonBack, ButtonChangeView, ButtonSel* (on another device: `[DirectInput.Aux]`) |
+| shiftUp/shiftDown, gears 1-6, reverse | on the wheel: ButtonGearUp/Down; on another device: `[DirectInput.Shifter]` with GearMode from the profile's transmission |
+
+The first apply backs the user INI up as `.user.ini.before-profile-controls`. The edit is one transaction: read back,
+then moved over the file. `[ControlsApplied]` records the revision, so F6 changes stand until the profile changes.
+Not applied, and logged: POV hat menus (the remap binds buttons), clutch, handbrake, look back, reset, horn, gear 7-8,
+button pedals, ranges other than 0..65535, and anything while `UseNewInput` is on.
 ### Telemetry
 
 A 311-byte Forza "Data Out" packet to `127.0.0.1:8000` (SimHub, MOZA Pit House)

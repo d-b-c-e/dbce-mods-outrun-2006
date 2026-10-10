@@ -9,6 +9,7 @@
 #include "game_addrs.hpp"
 #include "wheel_settings_policy.hpp"
 #include "signal_mute_policy.hpp"
+#include "profile_controls.hpp"
 
 void InitExceptionHandler(); // hooks_exceptions.cpp
 
@@ -473,6 +474,14 @@ void Plugin_Init()
             OutRunSignalMute::StartupMode()==OutRunSignalMute::Mode::LegacyConstant ? "legacy" : "invalid-mode-refused");
     }
 	Module::to_log();
+
+	// STD-033: a new rig-profile revision (OutRun2006Tweaks.profile.ini) becomes the remap's user INI keys before
+	// either INI is read.
+	{
+		bool profileApplied = false;
+		for (const auto& line : ProfileControls::ApplyAtStartup(Module::IniPath.parent_path(), profileApplied))
+			spdlog::info("{}", line);
+	}
 
 	if (!Settings::read(Module::IniPath))
 		spdlog::error("Settings::read - Launching game with default OR2006Tweaks INI settings!");

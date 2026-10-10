@@ -70,3 +70,9 @@ The historical pre-capture statements above are superseded by the October 8
 force recording/recalculation now pass; physical delivery, independent strengths
 and gameplay playback remain separate gaps. Source `3fac6d0` adds passive HUD
 speed discovery with 410 checks/14 analyzer tests/Release build, not yet installed.
+
+STD-033 (rig-profile controls), 2026-10-10, Claude: source only, not packaged or installed. `src/profile_controls.cpp`
+reads `[Controls]` from its own file, `OutRun2006Tweaks.profile.ini`, because Tweaks already owns `[Controls]` in both
+INIs. A new revision becomes the DirectInput remap's `.user.ini` keys in one atomic edit before the INIs are read.
+`tools/Test-ProfileControls.ps1`: 65 offline checks, MSVC x86 `/W4 /WX`. In-game observation and owner acceptance
+pending.

@@ -21,6 +21,7 @@
 #include "wheel_ui_snapshot.hpp"
 #include "consumer_lifecycle.hpp"
 #include "pov_binding.hpp"
+#include "remap_inject.hpp"
 #include <unordered_set>
 
 // Defined in Proxy.cpp — the real IDirectInput8A before our filtering wrapper
@@ -518,6 +519,14 @@ namespace DInputRemap
 			hr = slot.device->GetDeviceState(sizeof(DIJOYSTATE2), &slot.currentState);
 		}
 		slot.connected = SUCCEEDED(hr);
+		// Dev-only test injection (remap_inject.hpp): armed only in a signal-muted process. A failed read ends the
+		// instance's samples rather than carrying them to its next successful read.
+		if (RemapInject::Armed())
+		{
+			RemapInject::Poll();
+			if (slot.connected) RemapInject::Deliver(slot.guid, slot.device, slot.currentState);
+			else RemapInject::DeviceGone(slot.guid);
+		}
 	}
 
 	// ---------- H-pattern shifter logic ----------
@@ -1014,6 +1023,7 @@ namespace DInputRemap
 			if (old != extraInputs.end() && old->second->device)
 			{
 				old->second->device->Unacquire(); old->second->device->Release();
+				RemapInject::DeviceGone(old->second->guid);
 			}
 			extraInputs[oldKey] = std::make_unique<DeviceSlot>(std::move(primary));
 		}
@@ -1042,6 +1052,7 @@ namespace DInputRemap
 			if (used) { ++it; continue; }
 			if (it->second->device) { it->second->device->Unacquire(); it->second->device->Release(); }
 			const auto guid = it->second->guid;
+			RemapInject::DeviceGone(guid);
 			const auto opened = std::find_if(openedGuids.begin(), openedGuids.end(), [&](const GUID& other) { return IsEqualGUID(guid, other); });
 			if (opened != openedGuids.end()) openedGuids.erase(opened);
 			it = extraInputs.erase(it);
@@ -1128,6 +1139,7 @@ namespace DInputRemap
             if (slot.device && released.insert(slot.device).second) {
                 slot.device->Unacquire();
                 slot.device->Release();
+                RemapInject::DeviceGone(slot.guid);
             }
             slot.device = nullptr;
             slot.initialized = slot.connected = false;

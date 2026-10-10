@@ -10,6 +10,7 @@
 #include "wheel_settings_policy.hpp"
 #include "signal_mute_policy.hpp"
 #include "profile_controls.hpp"
+#include "remap_inject.hpp"
 
 void InitExceptionHandler(); // hooks_exceptions.cpp
 
@@ -480,6 +481,9 @@ void Plugin_Init()
 	{
 		bool profileApplied = false;
 		for (const auto& line : ProfileControls::ApplyAtStartup(Module::IniPath.parent_path(), profileApplied))
+			spdlog::info("{}", line);
+		// Dev only: arms just for a signal-muted process with inject.on and the profile applied (remap_inject.hpp).
+		for (const auto& line : RemapInject::Init(Module::IniPath.parent_path()))
 			spdlog::info("{}", line);
 	}
 

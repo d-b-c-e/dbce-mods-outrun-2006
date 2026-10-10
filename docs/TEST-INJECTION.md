@@ -51,9 +51,10 @@ resolves through the same applied store the game reads, so it cannot catch a wro
 A signal-muted process publishes no telemetry: no shared memory and no Forza UDP, because SimHub can turn those into
 shaker output. While injection is armed, each FFB update copies the game's own car words into
 `Local\DbceOutRunInjectObserve-<nonce>`. That is a mapping only the run's observer knows; nothing else reads it. It
-holds 36 bytes, `RemapInject::ObserveData`:
+holds 48 bytes, `RemapInject::ObserveData` (version 2):
 - `speed` and `steer`: EVWORK_CAR `field_1C4` and `field_1D0`, as OutRun2006Telemetry has them;
 - `pedal`: `pedal_amount_34`, the game's throttle;
+- `steerVolume`, `accelVolume`, `brakeVolume`: what the game last read through the remap's `GetVolume` hooks. That is the earliest point the game consumes the bound input, and it is where steering is observed: `field_1D0` is not the steering position (see the field probe in `hooks_dinputffb.cpp`; a 2026-10-10 run kept it within ±0.004 while steering);
 - `gear`, the game mode, in-gameplay, and `packetId`.
 
 `packetId` is a sequence: it is odd while an update is written and even when the update is whole. A reader keeps a copy only

@@ -59,9 +59,18 @@ namespace RemapInject
 		uint32_t gameMode;     // Game::current_mode
 		uint8_t inGameplay;
 		uint8_t pad[3];
+		// Version 2: what the game itself last read through the remap's GetVolume hooks (-127..127 steering,
+		// 0..255 pedals), the earliest point the game consumes the bound input. EVWORK_CAR field_1D0 is not the
+		// steering position (hooks_dinputffb.cpp's field probe notes), so steering is observed here.
+		int32_t steerVolume;
+		int32_t accelVolume;
+		int32_t brakeVolume;
 	};
 #pragma pack(pop)
-	static_assert(sizeof(ObserveData) == 36, "ObserveData layout");
+	static_assert(sizeof(ObserveData) == 48, "ObserveData layout");
+	enum class Volume { Steering = 0, Acceleration = 1, Brake = 2 };
+	// The value a GetVolume hook returns to the game (only kept while armed). Returns `value`.
+	int NoteVolume(Volume channel, int value);
 	// Returns whether the update was published. The mapping is created by this process or not at all: one that already
 	// exists (another writer, or a reader that created it) is refused and nothing is published for the run.
 	bool Observe(float speed, float steer, int pedal, uint32_t gear, uint32_t gameMode, bool inGameplay);

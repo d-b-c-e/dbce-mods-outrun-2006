@@ -1170,11 +1170,12 @@ class DirectInputRemapHook : public Hook
 
 		DInputRemap::Poll();
 
+		// NoteVolume keeps what the game reads, for an injected run's observer only (remap_inject.hpp).
 		switch (volumeId)
 		{
-		case ADChannel::Steering:     return DInputRemap::GetSteering();
-		case ADChannel::Acceleration: return DInputRemap::GetAcceleration();
-		case ADChannel::Brake:        return DInputRemap::GetBrake();
+		case ADChannel::Steering:     return RemapInject::NoteVolume(RemapInject::Volume::Steering, DInputRemap::GetSteering());
+		case ADChannel::Acceleration: return RemapInject::NoteVolume(RemapInject::Volume::Acceleration, DInputRemap::GetAcceleration());
+		case ADChannel::Brake:        return RemapInject::NoteVolume(RemapInject::Volume::Brake, DInputRemap::GetBrake());
 		default:                      return GetVolume_hook.ccall<int>(volumeId);
 		}
 	}
@@ -1192,21 +1193,24 @@ class DirectInputRemapHook : public Hook
 		{
 		case ADChannel::Steering:
 		{
-			if (Settings::DIRemapSteeringAxis < 0) return 0;
-			LONG raw = DInputRemap::ReadAxisRaw(DInputRemap::primary.previousState, Settings::DIRemapSteeringAxis);
-			if (Settings::DIRemapCalibration[0].enabled)
-			{
-				if (!DInputRemap::primary.connected) return 0;
-				return static_cast<int>(std::clamp(127 * Settings::DIRemapSteeringSensitivity * WheelInput::Normalize(
-					static_cast<float>(raw), Settings::DIRemapCalibration[0], true, Settings::DIRemapSteeringInvert,
-					Settings::SteeringDeadZone), -127.0f, 127.0f));
-			}
-			float n = (static_cast<float>(raw) - 32767.5f) / 32767.5f;
-			if (Settings::DIRemapSteeringInvert) n = -n;
-			return static_cast<int>(std::clamp(n * 127.0f, -127.0f, 127.0f));
+			const int steering = []() -> int {
+				if (Settings::DIRemapSteeringAxis < 0) return 0;
+				LONG raw = DInputRemap::ReadAxisRaw(DInputRemap::primary.previousState, Settings::DIRemapSteeringAxis);
+				if (Settings::DIRemapCalibration[0].enabled)
+				{
+					if (!DInputRemap::primary.connected) return 0;
+					return static_cast<int>(std::clamp(127 * Settings::DIRemapSteeringSensitivity * WheelInput::Normalize(
+						static_cast<float>(raw), Settings::DIRemapCalibration[0], true, Settings::DIRemapSteeringInvert,
+						Settings::SteeringDeadZone), -127.0f, 127.0f));
+				}
+				float n = (static_cast<float>(raw) - 32767.5f) / 32767.5f;
+				if (Settings::DIRemapSteeringInvert) n = -n;
+				return static_cast<int>(std::clamp(n * 127.0f, -127.0f, 127.0f));
+			}();
+			return RemapInject::NoteVolume(RemapInject::Volume::Steering, steering);
 		}
-		case ADChannel::Acceleration: return DInputRemap::GetPedal(1, true);
-		case ADChannel::Brake: return DInputRemap::GetPedal(2, true);
+		case ADChannel::Acceleration: return RemapInject::NoteVolume(RemapInject::Volume::Acceleration, DInputRemap::GetPedal(1, true));
+		case ADChannel::Brake: return RemapInject::NoteVolume(RemapInject::Volume::Brake, DInputRemap::GetPedal(2, true));
 		default:
 			return GetVolumeOld_hook.ccall<int>(volumeId);
 		}

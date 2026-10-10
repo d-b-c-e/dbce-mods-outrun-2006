@@ -146,6 +146,7 @@ int main(int argc, char** argv)
           "not armed: commands refused");
 
     check(RemapInject::InstanceText(kWheel) == WHEEL_DEV, "instance text is the toolkit's normalized form");
+    RemapInject::NoteVolume(RemapInject::Volume::Steering, 99);   // not armed: not kept
     RemapInject::Observe(0.5f, 0.25f, 255, 3, 7, true);
     check(RemapInject::ObserveName().empty() && !OpenFileMappingA(FILE_MAP_READ, FALSE, "Local\\DbceOutRunInjectObserve-test"),
           "not armed: no observation mapping");
@@ -153,10 +154,13 @@ int main(int argc, char** argv)
     {
         // The observer: the game's car words in a mapping named for the session, updated per FFB update.
         check(RemapInject::ObserveName() == "Local\\DbceOutRunInjectObserve-test", "observation name carries the session nonce");
+        RemapInject::NoteVolume(RemapInject::Volume::Steering, -64);
+        RemapInject::NoteVolume(RemapInject::Volume::Acceleration, 255);
+        check(RemapInject::NoteVolume(RemapInject::Volume::Brake, 12) == 12, "NoteVolume passes the value through");
         check(RemapInject::Observe(0.5f, -0.25f, 200, 3, 7, true), "first update published");
         HANDLE map = OpenFileMappingA(FILE_MAP_READ, FALSE, "Local\\DbceOutRunInjectObserve-test");
         const auto* o = map ? static_cast<const RemapInject::ObserveData*>(MapViewOfFile(map, FILE_MAP_READ, 0, 0, sizeof(RemapInject::ObserveData))) : nullptr;
-        check(o && o->version == 1 && o->packetId == 2 && o->speed == 0.5f && o->steer == -0.25f && o->pedal == 200 && o->gear == 3 &&
+        check(o && o->version == 2 && o->packetId == 2 && o->steerVolume == -64 && o->accelVolume == 255 && o->brakeVolume == 12 && o->speed == 0.5f && o->steer == -0.25f && o->pedal == 200 && o->gear == 3 &&
               o->gameMode == 7 && o->inGameplay == 1, "observation published");
         RemapInject::Observe(0.6f, 0.0f, 0, 3, 7, true);
         check(o && o->packetId == 4 && o->speed == 0.6f && o->pedal == 0, "each update leaves an even sequence, two further on");

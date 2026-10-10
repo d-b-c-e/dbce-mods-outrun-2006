@@ -275,6 +275,14 @@ namespace RemapInject
 		});
 	}
 
+	namespace { std::atomic<int> g_volumes[3]{}; }
+
+	int NoteVolume(Volume channel, int value)
+	{
+		if (g_armed) g_volumes[(int)channel].store(value, std::memory_order_relaxed);
+		return value;
+	}
+
 	std::string ObserveName()
 	{
 		if (!g_armed) return {};
@@ -304,7 +312,7 @@ namespace RemapInject
 			if (!v) { Log("observation mapping " + name + " could not be mapped (" + std::to_string(GetLastError()) + ")"); CloseHandle(map); return false; }
 			// The mapping lives as long as the process: one per armed run.
 			*v = ObserveData{};
-			v->version = 1;
+			v->version = 2;
 			view = v;
 			failed = false;
 			Log("observation published as " + name);
@@ -321,6 +329,9 @@ namespace RemapInject
 		view->gear = gear;
 		view->gameMode = gameMode;
 		view->inGameplay = inGameplay ? 1 : 0;
+		view->steerVolume = g_volumes[0].load(std::memory_order_relaxed);
+		view->accelVolume = g_volumes[1].load(std::memory_order_relaxed);
+		view->brakeVolume = g_volumes[2].load(std::memory_order_relaxed);
 		MemoryBarrier();
 		InterlockedIncrement(seq);
 		return true;

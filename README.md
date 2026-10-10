@@ -98,10 +98,10 @@ a constant-force fallback synthesises them, capped at 15 Hz.
 
 ### Rig-profile controls (STD-033, source only)
 
-Wheelkit can write a rig profile into `OutRun2006Tweaks.profile.ini`, as a `[Controls]` section in the toolkit's
-format (`docs/controls-contract.md`). It is a file of its own because Tweaks already has a `[Controls]` section. At
-start, before the INIs are read, a new revision becomes the DirectInput remap's own keys in
-`OutRun2006Tweaks.user.ini`, the ones F6 saves:
+Wheelkit can stage a rig profile in `OutRun2006Tweaks.user.ini` as a `[WheelkitProfile]` section: the toolkit's
+`[Controls]` body (`docs/controls-contract.md`) under another name, since Tweaks already has a `[Controls]` section.
+At start, before the INIs are read, a new revision becomes the DirectInput remap's own keys in the same file, the ones
+F6 saves:
 
 | Profile | Remap keys |
 | --- | --- |
@@ -112,8 +112,12 @@ start, before the INIs are read, a new revision becomes the DirectInput remap's 
 
 The first apply backs the user INI up as `.user.ini.before-profile-controls`. The edit is one transaction: read back,
 then moved over the file. `[ControlsApplied]` records the revision, so F6 changes stand until the profile changes.
-Not applied, and logged: POV hat menus (the remap binds buttons), clutch, handbrake, look back, reset, horn, gear 7-8,
-button pedals, ranges other than 0..65535, and anything while `UseNewInput` is on.
+Any button key also takes a POV hat direction: 128 + hat * 4 + direction (0 up, 1 right, 2 down, 3 left), the
+encoding recomp-ui uses. A direction is pressed by the contract's hat rule, so a diagonal presses both neighbours. F6
+shows these as "POV 1 Up" but captures buttons only. Not applied, and logged: diagonal hat bindings, clutch,
+handbrake, look back, reset, horn, gear 7-8, button pedals, ranges other than 0..65535, and anything while
+`UseNewInput` is on.
+
 ### Telemetry
 
 A 311-byte Forza "Data Out" packet to `127.0.0.1:8000` (SimHub, MOZA Pit House)

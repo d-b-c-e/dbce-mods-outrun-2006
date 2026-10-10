@@ -4,6 +4,7 @@
 // over unchanged (hooks_inputremap.cpp ReadAxisRaw: 0 lX .. 5 lRz, 6-7 sliders; buttons 0..127).
 #include "profile_controls.hpp"
 
+#include "pov_binding.hpp"
 #include "vendor/controls/dbce_controls.hpp"
 
 #include <cstdio>
@@ -248,9 +249,13 @@ Plan PlanLines(const std::vector<std::string>& lines, bool useNewInput)
         const Digital* map = nullptr;
         for (const Digital& d : kDigital) if (e.action == d.action) map = &d;
         if (!map) { b.note(e.action, "no OutRun 2006 control"); continue; }
-        if (x.kind != ctl::Kind::Button) { b.note(e.action, "the remap binds buttons only (no POV)"); continue; }
-        if (x.dev == primary) b.key(Remap, map->key, number(x.index));
-        else if (b.slot(b.auxDev, Aux, x, e.action)) b.key(Aux, map->key, number(x.index));
+        long raw = x.index;
+        if (x.kind == ctl::Kind::Hat) {   // pov_binding.hpp: 128 + hat * 4 + direction, straight directions only
+            raw = PovBinding::Encode(x.index, x.angle);
+            if (raw < 0) { b.note(e.action, "a diagonal hat direction has no remap binding"); continue; }
+        }
+        if (x.dev == primary) b.key(Remap, map->key, number(raw));
+        else if (b.slot(b.auxDev, Aux, x, e.action)) b.key(Aux, map->key, number(raw));
     }
     // The shifter slot's mode follows the profile's transmission; an automatic profile leaves the mode alone.
     if (!b.shifterDev.empty()) {
@@ -264,13 +269,13 @@ Plan PlanLines(const std::vector<std::string>& lines, bool useNewInput)
     return p;
 }
 
-bool ReadProfile(const std::filesystem::path& profile, std::vector<std::string>& body)
+bool ReadProfile(const std::filesystem::path& userIni, std::vector<std::string>& body)
 {
     Doc d;
-    if (!load(profile, d)) return false;
+    if (!load(userIni, d)) return false;
     bool in = false, found = false;
     for (const std::string& l : d.lines) {
-        if (!sectionName(l).empty()) { in = iequal(sectionName(l), "Controls"); found = found || in; continue; }
+        if (!sectionName(l).empty()) { in = iequal(sectionName(l), ProfileSection); found = found || in; continue; }
         if (in) body.push_back(l);
     }
     return found;
@@ -320,8 +325,8 @@ std::vector<std::string> ApplyAtStartup(const std::filesystem::path& gameDir, bo
 {
     applied = false;
     std::vector<std::string> log, body;
-    if (!ReadProfile(gameDir / ProfileFileName, body)) return log;
     const auto userIni = gameDir / "OutRun2006Tweaks.user.ini", mainIni = gameDir / "OutRun2006Tweaks.ini";
+    if (!ReadProfile(userIni, body)) return log;
     Plan plan = PlanLines(body, UseNewInput(mainIni, userIni));
     if (!plan.ok) { log.push_back("ProfileControls: profile '" + plan.profile + "' not applied: " + plan.error); return log; }
     if (!Pending(userIni, plan)) return log;

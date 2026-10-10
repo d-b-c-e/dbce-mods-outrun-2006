@@ -12,6 +12,7 @@
 #include "resource.h"
 #include "overlay.hpp"
 #include "wheel_settings.hpp"
+#include "pov_binding.hpp"
 #include "consumer_lifecycle.hpp"
 #include "wheel_settings_policy.hpp"
 #include "wheel_ui_snapshot.hpp"
@@ -622,7 +623,8 @@ static void ButtonRow(const char* label, int& button, const char* key, const DIn
     ImGui::PushID(key);
     ImGui::TextUnformatted(label);
     ImGui::SameLine(180 * UiScale());
-    if (button >= 0) ImGui::Text("Button %d", button + 1); else ImGui::TextDisabled("Not bound");
+    if (PovBinding::IsPov(button)) ImGui::Text("POV %d %s", PovBinding::Hat(button) + 1, PovBinding::DirectionName(button));
+    else if (button >= 0) ImGui::Text("Button %d", button + 1); else ImGui::TextDisabled("Not bound");
     ImGui::SameLine(310 * UiScale());
     ImGui::BeginDisabled(IsCapturing() || !Settings::UseDirectInputRemap || Settings::UseNewInput || (!input.connected && std::string(section) == "DirectInput"));
     if (ImGui::Button("Bind")) BeginCapture(button, label, key, false, input, section);

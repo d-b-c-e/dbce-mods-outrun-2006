@@ -20,6 +20,7 @@
 #include "game_addrs.hpp"
 #include "wheel_ui_snapshot.hpp"
 #include "consumer_lifecycle.hpp"
+#include "pov_binding.hpp"
 #include <unordered_set>
 
 // Defined in Proxy.cpp — the real IDirectInput8A before our filtering wrapper
@@ -674,6 +675,8 @@ namespace DInputRemap
 	// Check if a button is pressed on a given slot
 	static bool IsButtonPressed(const DeviceSlot& slot, int buttonIndex)
 	{
+		if (slot.connected && PovBinding::IsPov(buttonIndex)) // 128..143: a POV direction (pov_binding.hpp)
+			return PovBinding::Pressed(slot.currentState.rgdwPOV[PovBinding::Hat(buttonIndex)], buttonIndex);
 		if (!slot.connected || buttonIndex < 0 || buttonIndex >= 128)
 			return false;
 		return (slot.currentState.rgbButtons[buttonIndex] & 0x80) != 0;
@@ -681,6 +684,8 @@ namespace DInputRemap
 
 	static bool WasButtonPressed(const DeviceSlot& slot, int buttonIndex)
 	{
+		if (slot.connected && PovBinding::IsPov(buttonIndex))
+			return PovBinding::Pressed(slot.previousState.rgdwPOV[PovBinding::Hat(buttonIndex)], buttonIndex);
 		if (!slot.connected || buttonIndex < 0 || buttonIndex >= 128)
 			return false;
 		return (slot.previousState.rgbButtons[buttonIndex] & 0x80) != 0;

@@ -329,6 +329,7 @@ set(outrun2006tweaks_SOURCES
 	"src/overlay/wheel_settings.cpp"
 	"src/overlay/wheel_settings.hpp"
 	"src/plugin.hpp"
+	"src/pov_binding.hpp"
 	"src/profile_controls.cpp"
 	"src/profile_controls.hpp"
 	"src/resource.h"

@@ -1,6 +1,7 @@
 // Offline checks for src/profile_controls.cpp (STD-033 rig-profile controls -> the DirectInput remap's user INI keys).
 // Built and run by tools/Test-ProfileControls.ps1 (MSVC x86, the game's architecture). No game, device or force.
 #include "profile_controls.hpp"
+#include "pov_binding.hpp"
 
 #include <cstdio>
 #include <cstring>
@@ -90,7 +91,8 @@ int main()
     check(key(p, "DirectInput", "ButtonA") == "31" && key(p, "DirectInput", "ButtonB") == "18", "confirm/back");
     check(key(p, "DirectInput", "ButtonStart") == "35" && key(p, "DirectInput", "ButtonBack") == "22", "start/select");
     check(key(p, "DirectInput", "ButtonChangeView") == "32", "camera");
-    check(key(p, "DirectInput", "ButtonSelUp") == "<absent>" && noted(p, "navUp: the remap binds buttons only (no POV)"), "hat menus refused, owner's kept");
+    check(key(p, "DirectInput", "ButtonSelUp") == "128" && key(p, "DirectInput", "ButtonSelRight") == "129" &&
+          key(p, "DirectInput", "ButtonSelDown") == "130" && key(p, "DirectInput", "ButtonSelLeft") == "131", "hat menus as POV directions");
     check(key(p, "DirectInput", "ButtonGearUp") == "<absent>", "primary paddles untouched (shifts are on the shifter)");
     check(key(p, "DirectInput.Shifter", "DeviceGuid") == SHIFTER_UPPER, "shifter slot device");
     check(key(p, "DirectInput.Shifter", "ButtonGearUp") == "9" && key(p, "DirectInput.Shifter", "ButtonGearDown") == "10", "sequential shifts");
@@ -114,6 +116,19 @@ int main()
     check(key(t, "DirectInput", "BrakeInvert") == "false" && key(t, "DirectInput.Calibration", "BrakeMaximum") == "60000", "inverted, travel -1");
     t = one("brake = axis 5 " SHIFTER " range=0..65535 rest=0 travel=+1");
     check(key(t, "DirectInput", "BrakeDeviceGuid") == SHIFTER_UPPER, "a pedal on its own device");
+
+    // POV directions: the encoding and the contract's hat rule (a diagonal presses both neighbours).
+    check(PovBinding::Encode(0, 27000) == 131 && PovBinding::Encode(1, 0) == 132 && PovBinding::Encode(3, 9000) == 141, "POV encode");
+    check(PovBinding::Encode(4, 0) == -1 && PovBinding::Encode(0, 4500) == -1 && PovBinding::Encode(0, 36000) == -1, "POV encode refusals");
+    check(PovBinding::Pressed(0, 128) && !PovBinding::Pressed(0, 129) && PovBinding::Pressed(9000, 129), "POV straight");
+    check(PovBinding::Pressed(4500, 128) && PovBinding::Pressed(4500, 129) && !PovBinding::Pressed(4500, 130), "POV diagonal presses both");
+    check(PovBinding::Pressed(31500, 128) && PovBinding::Pressed(31500, 131), "POV wraps at 36000");
+    check(!PovBinding::Pressed(0xFFFFFFFFul, 128) && !PovBinding::Pressed(0x0000FFFFul, 130) && !PovBinding::Pressed(0, 127) &&
+          !PovBinding::Pressed(0, 144), "centred POV and non-POV bindings");
+    t = one("navUp = hat 0 4500 " WHEEL);
+    check(key(t, "DirectInput", "ButtonSelUp") == "<absent>" && noted(t, "navUp: a diagonal hat direction"), "diagonal hat refused");
+    t = one("confirm = hat 2 18000 " SHIFTER);
+    check(key(t, "DirectInput.Aux", "ButtonA") == "138", "a hat on another device -> Aux POV");
 
     // Refusals.
     t = one("throttle = button 3 " WHEEL);
@@ -167,7 +182,8 @@ int main()
     check(slurp(backup) == owner, "backup holds the original bytes");
     check(applied.find("[Controls]\r\nUseNewInput = false\r\nSteeringDeadZone = 0\r\n[DirectInput]\r\n") == 0, "Tweaks' own [Controls] untouched, CRLF kept");
     check(applied.find("BrakeMinimum = 1743\r\n") != std::string::npos && applied.find("BrakeMinimum = 0") == std::string::npos, "brake minimum replaced in place");
-    check(applied.find("ButtonGearUp = 13\r\n") != std::string::npos && applied.find("ButtonSelUp = 8\r\n") != std::string::npos, "owner keys outside the profile kept");
+    check(applied.find("ButtonGearUp = 13\r\n") != std::string::npos, "owner keys outside the profile kept");
+    check(applied.find("ButtonSelUp = 128\r\n") != std::string::npos && applied.find("ButtonSelUp = 8") == std::string::npos, "the profile's hat replaces the menu button in place");
     check(applied.find("[WheelSettings]\r\nView = Simple\r\n") != std::string::npos && applied.find("[FFB]\r\nDirectInputFFB = true\r\n") != std::string::npos, "other sections kept");
     check(applied.find("[ControlsApplied]\r\nRevision = rev-1\r\n") != std::string::npos, "revision recorded");
     size_t first = applied.find("BrakeAxis = 5"), again = applied.find("BrakeAxis = 5", first + 1);
@@ -176,23 +192,22 @@ int main()
     check(Write(user, p) && slurp(user) == applied, "the same plan again changes nothing");
 
     // Startup apply from the game folder.
-    spit(dir / ProfileFileName, "; written by Wheelkit\n[Controls]\n");
-    {
-        std::ofstream out(dir / ProfileFileName, std::ios::app | std::ios::binary);
-        for (const std::string& l : profile()) out << l << "\n";
-    }
     fs::remove(user); fs::remove(backup);
-    spit(user, owner);
+    std::string staged = owner + "[WheelkitProfile]\r\n";
+    for (const std::string& l : profile()) staged += l + "\r\n";
+    spit(user, staged);
     bool did = false;
     auto log = ApplyAtStartup(dir, did);
     check(did && !log.empty() && log[0].find("revision rev-1 applied") != std::string::npos, "startup applies");
+    check(slurp(user).find("[WheelkitProfile]\r\nSchema = 1\r\n") != std::string::npos, "the staged profile stays in the user INI");
     const std::string once = slurp(user);
     log = ApplyAtStartup(dir, did);
     check(!did && log.empty() && slurp(user) == once, "second start: nothing pending");
     spit(dir / "OutRun2006Tweaks.ini", "[Controls]\nUseNewInput = true\n");
-    spit(user, "[DirectInput]\nUseDirectInputRemap = true\n");
+    const std::string blocked = "[DirectInput]\nUseDirectInputRemap = true\n[WheelkitProfile]\nSchema = 1\nRevision = r9\nsteer = axis 0 " WHEEL " range=0..65535 rest=32768 travel=-1\n";
+    spit(user, blocked);
     log = ApplyAtStartup(dir, did);
-    check(!did && !log.empty() && log[0].find("UseNewInput") != std::string::npos && slurp(user) == "[DirectInput]\nUseDirectInputRemap = true\n",
+    check(!did && !log.empty() && log[0].find("UseNewInput") != std::string::npos && slurp(user) == blocked,
           "main INI UseNewInput=true refuses");
     fs::remove_all(dir, ec);
 

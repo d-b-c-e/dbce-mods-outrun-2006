@@ -1,19 +1,19 @@
 #pragma once
 // Rig-profile controls (dbce-wheel-mod-toolkit STD-033, docs/controls-contract.md) for the DirectInput remap.
 //
-// Wheelkit writes the profile as a [Controls] section in OutRun2006Tweaks.profile.ini (its own file: Tweaks already
-// owns a [Controls] section in OutRun2006Tweaks.ini and .user.ini). At startup, before the INIs are read, a new
-// revision becomes the remap's own keys in OutRun2006Tweaks.user.ini ([DirectInput], [DirectInput.Calibration],
-// [DirectInput.Shifter], [DirectInput.Aux]), the same keys the F6 panel saves, in one atomic edit. [ControlsApplied]
-// records the revision, so later F6 changes stand until the profile changes. Standalone (no game, plugin or log
-// dependency) so tests/profile_controls_test.cpp runs it offline.
+// Wheelkit stages the profile in OutRun2006Tweaks.user.ini as a [WheelkitProfile] section, the toolkit's [Controls]
+// body under another name: Tweaks already owns [Controls]. At startup, before the INIs are read, a new revision becomes
+// the remap's own keys in the same file ([DirectInput], [DirectInput.Calibration], [DirectInput.Shifter],
+// [DirectInput.Aux]), the keys the F6 panel saves, in one atomic edit. [ControlsApplied] records the revision, so later
+// F6 changes stand until the profile changes. Standalone (no game, plugin or log dependency), so
+// tests/profile_controls_test.cpp runs it offline.
 #include <filesystem>
 #include <string>
 #include <vector>
 
 namespace ProfileControls
 {
-constexpr const char* ProfileFileName = "OutRun2006Tweaks.profile.ini";
+constexpr const char* ProfileSection = "WheelkitProfile";
 
 struct Key { std::string section, key, value; };
 
@@ -30,8 +30,8 @@ struct Plan
 // inactive while it is on, so nothing is applied then).
 Plan PlanLines(const std::vector<std::string>& lines, bool useNewInput);
 
-// Reads [Controls] from the profile file; false when the file or section is absent.
-bool ReadProfile(const std::filesystem::path& profile, std::vector<std::string>& body);
+// Reads the [WheelkitProfile] body from the user INI; false when the file or section is absent.
+bool ReadProfile(const std::filesystem::path& userIni, std::vector<std::string>& body);
 
 // UseNewInput as the game will read it: the user INI wins over the main INI; default false.
 bool UseNewInput(const std::filesystem::path& mainIni, const std::filesystem::path& userIni);

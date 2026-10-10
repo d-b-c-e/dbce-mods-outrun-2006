@@ -398,6 +398,35 @@ bool Write(const std::filesystem::path& userIni, const Plan& plan, std::string& 
     return true;
 }
 
+Observation Observe(const std::filesystem::path& mainIni, const std::filesystem::path& userIni, const Plan& plan)
+{
+    Observation o;
+    std::vector<std::string> now(plan.keys.size());
+    std::vector<bool> seen(plan.keys.size(), false);
+    for (const auto& path : {mainIni, userIni}) {
+        std::error_code ec;
+        if (!std::filesystem::exists(path, ec)) continue;
+        try {
+            inih::INIReader ini(path);
+            for (size_t i = 0; i < plan.keys.size(); ++i) {
+                const Key& k = plan.keys[i];
+                std::string none = "\x01";   // never a real value; Get takes the default by reference
+                const std::string v = ini.Get<std::string>(k.section, k.key, none);
+                if (v != "\x01") { now[i] = v; seen[i] = true; }
+            }
+        } catch (...) {
+            // Settings::read skips a file it cannot parse; so does this.
+        }
+    }
+    for (size_t i = 0; i < plan.keys.size(); ++i) {
+        const Key& k = plan.keys[i];
+        ++o.total;
+        if (seen[i] && iequal(now[i], k.value)) ++o.matched;
+        else o.mismatches.push_back("[" + k.section + "] " + k.key + " = " + (seen[i] ? now[i] : std::string("(absent)")) + " (profile: " + k.value + ")");
+    }
+    return o;
+}
+
 std::vector<std::string> ApplyAtStartup(const std::filesystem::path& gameDir, bool& applied)
 {
     applied = false;
@@ -406,7 +435,14 @@ std::vector<std::string> ApplyAtStartup(const std::filesystem::path& gameDir, bo
     if (!ReadProfile(userIni, body)) return log;
     Plan plan = PlanLines(body, ReadCurrent(mainIni, userIni));
     if (!plan.ok) { log.push_back("ProfileControls: profile '" + plan.profile + "' not applied: " + plan.error); return log; }
-    if (!Pending(userIni, plan)) return log;
+    if (!Pending(userIni, plan)) {
+        const Observation o = Observe(mainIni, userIni, plan);
+        log.push_back("ProfileControls: profile '" + plan.profile + "' revision " + plan.revision + " already applied; " +
+            std::to_string(o.matched) + " of " + std::to_string(o.total) + " profile keys read as the profile set them" +
+            (o.mismatches.empty() ? "" : "; changed since (kept, not re-applied):"));
+        for (const std::string& m : o.mismatches) log.push_back("ProfileControls:   " + m);
+        return log;
+    }
     std::string why;
     if (!Write(userIni, plan, why)) {
         log.push_back("ProfileControls: profile '" + plan.profile + "' revision " + plan.revision + " not applied: " + why + "; nothing changed");

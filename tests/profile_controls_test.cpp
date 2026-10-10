@@ -302,7 +302,25 @@ int main()
     check(slurp(user).find("[WheelkitProfile]\r\nSchema = 1\r\n") != std::string::npos, "the staged profile stays in the user INI");
     const std::string once = slurp(user);
     log = ApplyAtStartup(dir, did);
-    check(!did && log.empty() && slurp(user) == once, "second start: nothing pending");
+    check(!did && log.size() == 1 && slurp(user) == once, "second start: nothing pending, nothing written");
+    check(!log.empty() && log[0].find("revision rev-1 already applied") != std::string::npos && log[0].find("changed since") == std::string::npos,
+          "second start logs the observation: " + (log.empty() ? std::string() : log[0]));
+    {
+        // Every planned key reads as planned: "N of N".
+        const size_t of = log[0].find(" of ");
+        const size_t sp = log[0].rfind(' ', of - 1);
+        check(of != std::string::npos && log[0].substr(sp + 1, of - sp - 1) == log[0].substr(of + 4, log[0].find(' ', of + 4) - of - 4), "all profile keys match");
+    }
+    // An F6 change after the Apply stands; the next start reports it and writes nothing.
+    std::string edited = once;
+    const size_t at = edited.find("ButtonA = 31\r\n");
+    check(at != std::string::npos, "the applied file has ButtonA = 31");
+    if (at != std::string::npos) edited.replace(at, 14, "ButtonA = 5\r\n");
+    spit(user, edited);
+    log = ApplyAtStartup(dir, did);
+    check(!did && slurp(user) == edited, "an F6 edit is kept: nothing written");
+    check(log.size() == 2 && log[0].find("changed since (kept, not re-applied)") != std::string::npos &&
+          log[1].find("[DirectInput] ButtonA = 5 (profile: 31)") != std::string::npos, "the edit is reported: " + (log.size() > 1 ? log[1] : std::string()));
     spit(mainIni, "[Controls]\nUseNewInput = true\n");
     const std::string blocked = "[DirectInput]\nUseDirectInputRemap = true\n[WheelkitProfile]\nSchema = 1\nRevision = r9\nsteer = axis 0 " WHEEL " range=0..65535 rest=32768 travel=-1\n";
     spit(user, blocked);

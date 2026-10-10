@@ -54,6 +54,14 @@ bool Pending(const std::filesystem::path& userIni, const Plan& plan);
 // 2 the replace.
 bool Write(const std::filesystem::path& userIni, const Plan& plan, std::string& why, int fault = 0);
 
-// Startup: plan, check, write when pending. Returns the log lines to print; applied is set when keys were written.
+// An already applied revision, read only: how many planned keys the game now reads with the planned value (main INI,
+// then the user INI over it, as Settings::read; letter case ignored) and which differ, e.g. an F6 change made since,
+// which stays. Nothing is re-forced. The plan is recomputed from the current state, so slot clears made by the original
+// Apply are not in it and are not claimed as observed.
+struct Observation { int matched = 0, total = 0; std::vector<std::string> mismatches; };   // "[sec] key = now (profile: planned)"
+Observation Observe(const std::filesystem::path& mainIni, const std::filesystem::path& userIni, const Plan& plan);
+
+// Startup: plan, check, write when pending; when not pending, log the Observation. Returns the log lines to print;
+// applied is set when keys were written.
 std::vector<std::string> ApplyAtStartup(const std::filesystem::path& gameDir, bool& applied);
 }

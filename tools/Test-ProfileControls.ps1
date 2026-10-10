@@ -7,7 +7,7 @@ $vcvars = Join-Path $vs 'VC\Auxiliary\Build\vcvars32.bat'
 $out = Join-Path $root 'build\profile-controls-test'
 New-Item -ItemType Directory -Force $out | Out-Null
 $exe = Join-Path $out 'profile_controls_test.exe'
-$cmd = "`"$vcvars`" >nul && cd /d `"$root`" && cl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 /utf-8 /I src tests\profile_controls_test.cpp src\profile_controls.cpp /Fo`"$out\\`" /Fe`"$exe`" && `"$exe`""
+$cmd = "`"$vcvars`" >nul && cd /d `"$root`" && cl /nologo /O2 /MT /W4 /WX /EHsc /std:c++17 /utf-8 /external:anglebrackets /external:W0 /I src /I external\ini-cpp\ini tests\profile_controls_test.cpp src\profile_controls.cpp /Fo`"$out\\`" /Fe`"$exe`" && `"$exe`""
 $text = cmd /c $cmd 2>&1
 $text | Select-String -Pattern ' warning | error |FAIL|PASS' | ForEach-Object { $_.Line }
 if ($LASTEXITCODE) { $text | Select-Object -Last 20; throw 'profile controls checks failed' }

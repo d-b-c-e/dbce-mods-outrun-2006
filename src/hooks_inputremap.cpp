@@ -813,9 +813,28 @@ namespace DInputRemap
 
 	// ---------- POV hat (merged across all slots) ----------
 
+	// Once any button key is bound to a POV direction (pov_binding.hpp, e.g. a rig profile's hat menus), those bindings
+	// replace this legacy POV 0 menu merge: an unbound hat must not keep navigating.
+	static bool ConfigurablePovInUse()
+	{
+		const int bindings[] = {
+			Settings::DIRemapButtonA, Settings::DIRemapButtonB, Settings::DIRemapButtonX, Settings::DIRemapButtonY,
+			Settings::DIRemapButtonStart, Settings::DIRemapButtonBack, Settings::DIRemapButtonGearUp, Settings::DIRemapButtonGearDown,
+			Settings::DIRemapButtonChangeView, Settings::DIRemapButtonSelUp, Settings::DIRemapButtonSelDown,
+			Settings::DIRemapButtonSelLeft, Settings::DIRemapButtonSelRight,
+			Settings::DIAuxButtonA, Settings::DIAuxButtonB, Settings::DIAuxButtonX, Settings::DIAuxButtonY,
+			Settings::DIAuxButtonStart, Settings::DIAuxButtonBack, Settings::DIAuxButtonGearUp, Settings::DIAuxButtonGearDown,
+			Settings::DIAuxButtonChangeView, Settings::DIAuxButtonSelUp, Settings::DIAuxButtonSelDown,
+			Settings::DIAuxButtonSelLeft, Settings::DIAuxButtonSelRight,
+			Settings::DIShifterButtonGearUp, Settings::DIShifterButtonGearDown };
+		for (int b : bindings)
+			if (PovBinding::IsPov(b)) return true;
+		return false;
+	}
+
 	static void ApplyPovToMask(const DeviceSlot& slot, uint32_t& mask)
 	{
-		if (!slot.connected) return;
+		if (!slot.connected || ConfigurablePovInUse()) return;
 		DWORD pov = slot.currentState.rgdwPOV[0];
 		if (pov == 0xFFFFFFFF) return;
 		if (pov >= 31500 || pov <= 4500)  mask |= (1 << static_cast<int>(SwitchId::SelectionUp));
@@ -826,7 +845,7 @@ namespace DInputRemap
 
 	static void ApplyPovEdgeToMask(const DeviceSlot& slot, uint32_t& mask)
 	{
-		if (!slot.connected) return;
+		if (!slot.connected || ConfigurablePovInUse()) return;
 		DWORD pov = slot.currentState.rgdwPOV[0];
 		DWORD prevPov = slot.previousState.rgdwPOV[0];
 		if (pov == prevPov || pov == 0xFFFFFFFF) return;

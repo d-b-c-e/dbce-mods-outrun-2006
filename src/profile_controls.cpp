@@ -1,14 +1,18 @@
-// Rig-profile controls -> the DirectInput remap's keys (see profile_controls.hpp). The [Controls] parser is the
-// toolkit's (src/vendor/controls/dbce_controls.hpp, toolkit 65c686d); this file holds only the OutRun 2006 mapping and
-// the user INI edit. The remap reads DIJOYSTATE2 itself, so the profile's DirectInput indexes and instance GUIDs carry
-// over unchanged (hooks_inputremap.cpp ReadAxisRaw: 0 lX .. 5 lRz, 6-7 sliders; buttons 0..127).
+// Rig-profile controls -> the DirectInput remap's keys (see profile_controls.hpp). The binding parser is the toolkit's
+// (src/vendor/controls/dbce_controls.hpp, toolkit 65c686d); every read of what the game will see goes through the
+// game's own inih INIReader. The remap reads DIJOYSTATE2 itself, so the profile's DirectInput indexes and instance
+// GUIDs carry over unchanged (hooks_inputremap.cpp ReadAxisRaw: 0 lX .. 5 lRz, 6-7 sliders; buttons 0..127; POV
+// directions per pov_binding.hpp).
 #include "profile_controls.hpp"
 
 #include "pov_binding.hpp"
 #include "vendor/controls/dbce_controls.hpp"
 
+#include <ini.h>
+
 #include <cstdio>
 #include <fstream>
+#include <set>
 #include <sstream>
 
 #define WIN32_LEAN_AND_MEAN
@@ -24,6 +28,7 @@ constexpr const char* Remap = "DirectInput";
 constexpr const char* Calibration = "DirectInput.Calibration";
 constexpr const char* Shifter = "DirectInput.Shifter";
 constexpr const char* Aux = "DirectInput.Aux";
+constexpr const char* Applied = "ControlsApplied";
 
 // Menu and camera actions: the same key name in the primary [DirectInput] and the [DirectInput.Aux] slot.
 struct Digital { const char* action; const char* key; };
@@ -33,6 +38,11 @@ constexpr Digital kDigital[] = {
     {"navLeft", "ButtonSelLeft"}, {"navRight", "ButtonSelRight"},
 };
 constexpr const char* kGears[] = {"gear1", "gear2", "gear3", "gear4", "gear5", "gear6"};
+// Every button key of a slot (cleared when the slot changes device, so no number from the old device stays live).
+constexpr const char* kSlotButtons[] = {"ButtonA", "ButtonB", "ButtonX", "ButtonY", "ButtonStart", "ButtonBack",
+    "ButtonGearUp", "ButtonGearDown", "ButtonChangeView", "ButtonSelUp", "ButtonSelDown", "ButtonSelLeft", "ButtonSelRight"};
+constexpr const char* kShifterButtons[] = {"ButtonGearUp", "ButtonGearDown", "ButtonGear1", "ButtonGear2", "ButtonGear3",
+    "ButtonGear4", "ButtonGear5", "ButtonGear6", "ButtonGearReverse"};
 
 bool iequal(const std::string& a, const std::string& b)
 {
@@ -56,7 +66,12 @@ struct Builder
 {
     Plan& p;
     std::string shifterDev, auxDev;
-    void key(const char* section, const char* k, const std::string& v)
+    bool has(const char* section, const char* k) const
+    {
+        for (const Key& e : p.keys) if (e.section == section && e.key == k) return true;
+        return false;
+    }
+    void key(const char* section, const std::string& k, const std::string& v)
     {
         for (Key& e : p.keys)
             if (e.section == section && e.key == k) { e.value = v; return; }
@@ -71,8 +86,23 @@ struct Builder
         note(action, std::string("the remap's ") + section + " slot already holds another device");
         return false;
     }
+    // A slot given a different device keeps no button number from the old one.
+    template <size_t N>
+    void clearOnChange(const char* section, const std::string& planned, const std::string& current, bool unsetIsChange,
+        const char* const (&keys)[N])
+    {
+        if (planned.empty()) return;
+        const bool changed = current.empty() ? unsetIsChange : !iequal(current, guidText(planned));
+        if (!changed) return;
+        for (const char* k : keys)
+            if (!has(section, k)) {
+                key(section, k, "-1");
+                note(std::string(section) + " " + k, "cleared (it belonged to the slot's previous device)");
+            }
+    }
 };
 
+// ---- the user INI as text, with the game's exact section and key spelling ------------------------------------------
 std::string sectionName(const std::string& line)
 {
     size_t a = line.find_first_not_of(" \t");
@@ -117,6 +147,7 @@ std::string render(const Doc& d)
     return out;
 }
 
+// Exact spelling, as INIReader::Get matches: [directinput] is another section to the game.
 void set(Doc& d, const std::string& section, const std::string& key, const std::string& value)
 {
     auto& lines = d.lines;
@@ -125,7 +156,7 @@ void set(Doc& d, const std::string& section, const std::string& key, const std::
     for (int i = 0; i < (int)lines.size(); ++i) {
         if (sectionName(lines[i]).empty()) continue;
         if (start >= 0) { end = i; break; }
-        if (iequal(sectionName(lines[i]), section)) start = i + 1;
+        if (sectionName(lines[i]) == section) start = i + 1;
     }
     if (start < 0) {
         if (!lines.empty() && !ctl::trim(lines.back()).empty()) lines.push_back("");
@@ -134,44 +165,26 @@ void set(Doc& d, const std::string& section, const std::string& key, const std::
         return;
     }
     for (int i = start; i < end; ++i)
-        if (iequal(lineKey(lines[i]), key)) { lines[i] = assign; return; }
+        if (lineKey(lines[i]) == key) { lines[i] = assign; return; }
     int at = end;
     while (at > start && ctl::trim(lines[at - 1]).empty()) --at;
     lines.insert(lines.begin() + at, assign);
 }
 
-std::string value(const Doc& d, const std::string& section, const std::string& key)
+bool writeFile(const std::filesystem::path& path, const std::string& text, bool half)
 {
-    bool in = false;
-    for (const std::string& l : d.lines) {
-        if (!sectionName(l).empty()) { in = iequal(sectionName(l), section); continue; }
-        if (in && iequal(lineKey(l), key)) return ctl::trim(l.substr(l.find('=') + 1));
-    }
-    return std::string();
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    if (!out) return false;
+    out << (half ? text.substr(0, text.size() / 2) : text);
+    out.flush();
+    return (bool)out && !half;
 }
 
-bool replace(const std::filesystem::path& path, const std::string& text, int fault)
+void drop(const std::filesystem::path& path) { std::error_code ec; std::filesystem::remove(path, ec); }
+
+bool moveOver(const std::filesystem::path& from, const std::filesystem::path& to)
 {
-    std::filesystem::path tmp = path;
-    tmp += ".controls-tmp";
-    {
-        std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-        if (!out) return false;
-        if (fault == 1) {
-            out << text.substr(0, text.size() / 2);
-            out.close();
-            std::error_code ec;
-            std::filesystem::remove(tmp, ec);
-            return false;
-        }
-        out << text;
-        out.flush();
-        if (!out) { out.close(); std::error_code ec; std::filesystem::remove(tmp, ec); return false; }
-    }
-    const bool moved = fault != 2 &&
-        MoveFileExW(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
-    if (!moved) { std::error_code ec; std::filesystem::remove(tmp, ec); }
-    return moved;
+    return MoveFileExW(from.c_str(), to.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
 }
 
 uint32_t fnv1a(const std::string& s)
@@ -180,9 +193,15 @@ uint32_t fnv1a(const std::string& s)
     for (unsigned char c : s) { h ^= c; h *= 16777619u; }
     return h;
 }
+
+template <typename T>
+T effective(const inih::INIReader& ini, const char* section, const char* key, T current)
+{
+    return ini.Get<T>(section, key, current);   // an invalid or missing value keeps the previous one
+}
 } // namespace
 
-Plan PlanLines(const std::vector<std::string>& lines, bool useNewInput)
+Plan PlanLines(const std::vector<std::string>& lines, const Current& current)
 {
     Plan p;
     std::string joined;
@@ -192,7 +211,7 @@ Plan PlanLines(const std::vector<std::string>& lines, bool useNewInput)
     if (!s.revision.empty()) p.revision = s.revision;
     else { char h[16]; std::snprintf(h, sizeof(h), "%08x", (unsigned)fnv1a(joined)); p.revision = std::string("fnv1a:") + h; }
     if (!s.error.empty()) { p.error = s.error; return p; }
-    if (useNewInput) { p.error = "UseNewInput is on, so the DirectInput remap is inactive; the input backend is left as it is"; return p; }
+    if (current.useNewInput) { p.error = "UseNewInput is on, so the DirectInput remap is inactive; the input backend is left as it is"; return p; }
     Builder b{p};
     for (auto& bad : s.invalid) b.note(bad.first, bad.second);
 
@@ -208,6 +227,8 @@ Plan PlanLines(const std::vector<std::string>& lines, bool useNewInput)
     // The contract centres steering on the range, as the remap's uncalibrated path does ((raw - 32767.5) / 32767.5).
     b.key(Calibration, "SteeringEnabled", "false");
 
+    std::set<long> gearButtons;
+    bool gearClash = false;
     for (const ctl::Entry& e : s.bound) {
         const ctl::Binding& x = e.binding;
         if (e.action == "steer") continue;
@@ -224,45 +245,51 @@ Plan PlanLines(const std::vector<std::string>& lines, bool useNewInput)
             b.key(Remap, gas ? "AccelerationInvert" : "BrakeInvert", invert ? "true" : "false");
             b.key(Remap, gas ? "ThrottleDeviceGuid" : "BrakeDeviceGuid", guidText(x.dev));
             if (!x.name.empty()) b.key(Remap, gas ? "ThrottleDeviceName" : "BrakeDeviceName", x.name);
-            const char* role = gas ? "Throttle" : "Brake";
-            b.key(Calibration, (std::string(role) + "Enabled").c_str(), "true");
-            b.key(Calibration, (std::string(role) + "Minimum").c_str(), number(lo));
-            b.key(Calibration, (std::string(role) + "Center").c_str(), number((lo + hi) / 2));
-            b.key(Calibration, (std::string(role) + "Maximum").c_str(), number(hi));
+            const std::string role = gas ? "Throttle" : "Brake";
+            b.key(Calibration, role + "Enabled", "true");
+            b.key(Calibration, role + "Minimum", number(lo));
+            b.key(Calibration, role + "Center", number((lo + hi) / 2));
+            b.key(Calibration, role + "Maximum", number(hi));
             continue;
         }
-        if (e.action == "shiftUp" || e.action == "shiftDown") {
-            const char* k = e.action == "shiftUp" ? "ButtonGearUp" : "ButtonGearDown";
-            if (x.kind != ctl::Kind::Button) { b.note(e.action, "the remap binds buttons only"); continue; }
-            if (x.dev == primary) b.key(Remap, k, number(x.index));
-            else if (b.slot(b.shifterDev, Shifter, x, e.action)) b.key(Shifter, k, number(x.index));
-            continue;
-        }
-        int gear = 0;
-        for (int i = 0; i < 6; ++i) if (e.action == kGears[i]) gear = i + 1;
-        if (gear || e.action == "reverse") {
-            if (x.kind != ctl::Kind::Button) { b.note(e.action, "the remap binds buttons only"); continue; }
-            if (!b.slot(b.shifterDev, Shifter, x, e.action)) continue;
-            b.key(Shifter, gear ? ("ButtonGear" + std::to_string(gear)).c_str() : "ButtonGearReverse", number(x.index));
-            continue;
-        }
-        const Digital* map = nullptr;
-        for (const Digital& d : kDigital) if (e.action == d.action) map = &d;
-        if (!map) { b.note(e.action, "no OutRun 2006 control"); continue; }
         long raw = x.index;
         if (x.kind == ctl::Kind::Hat) {   // pov_binding.hpp: 128 + hat * 4 + direction, straight directions only
             raw = PovBinding::Encode(x.index, x.angle);
             if (raw < 0) { b.note(e.action, "a diagonal hat direction has no remap binding"); continue; }
         }
+        if (e.action == "shiftUp" || e.action == "shiftDown") {
+            const char* k = e.action == "shiftUp" ? "ButtonGearUp" : "ButtonGearDown";
+            if (x.dev == primary) b.key(Remap, k, number(raw));
+            else if (b.slot(b.shifterDev, Shifter, x, e.action)) b.key(Shifter, k, number(raw));
+            continue;
+        }
+        int gear = 0;
+        for (int i = 0; i < 6; ++i) if (e.action == kGears[i]) gear = i + 1;
+        if (gear || e.action == "reverse") {
+            if (!b.slot(b.shifterDev, Shifter, x, e.action)) continue;
+            gearClash = gearClash || !gearButtons.insert(raw).second;
+            b.key(Shifter, gear ? "ButtonGear" + std::to_string(gear) : std::string("ButtonGearReverse"), number(raw));
+            continue;
+        }
+        const Digital* map = nullptr;
+        for (const Digital& d : kDigital) if (e.action == d.action) map = &d;
+        if (!map) { b.note(e.action, "no OutRun 2006 control"); continue; }
         if (x.dev == primary) b.key(Remap, map->key, number(raw));
         else if (b.slot(b.auxDev, Aux, x, e.action)) b.key(Aux, map->key, number(raw));
     }
-    // The shifter slot's mode follows the profile's transmission; an automatic profile leaves the mode alone.
-    if (!b.shifterDev.empty()) {
-        if (iequal(s.transmission, "Sequential")) b.key(Shifter, "GearMode", "sequential");
-        else if (iequal(s.transmission, "HPattern") || iequal(s.transmission, "H-Pattern")) b.key(Shifter, "GearMode", "hpattern");
-        else b.note("transmission", "'" + s.transmission + "' has no shifter mode; GearMode left as it is");
+    // GearMode is always written, so an earlier H-pattern never outlives a profile that does not ask for one. H-pattern
+    // only when this profile gives gear 1 and distinct gear buttons on the shifter slot; otherwise sequential.
+    const bool hPattern = iequal(s.transmission, "HPattern") || iequal(s.transmission, "H-pattern");
+    if (hPattern && b.has(Shifter, "ButtonGear1") && !gearClash) b.key(Shifter, "GearMode", "hpattern");
+    else {
+        b.key(Shifter, "GearMode", "sequential");
+        if (hPattern) b.note("transmission", "H-pattern needs gear 1 and distinct gear buttons on one shifter; sequential written");
+        else if (!iequal(s.transmission, "Sequential"))
+            b.note("transmission", "'" + s.transmission + "': the race gearbox is chosen in the game; the shifter slot is set to sequential");
     }
+    b.clearOnChange(Remap, primary, current.primaryDev, false, kSlotButtons);
+    b.clearOnChange(Aux, b.auxDev, current.auxDev, true, kSlotButtons);
+    b.clearOnChange(Shifter, b.shifterDev, current.shifterDev, true, kShifterButtons);
     for (const std::string& a : s.unbound) b.note(a, "unbound in the profile; the remap keeps its value");
     p.ok = !p.keys.empty();
     if (!p.ok) p.error = "no binding the remap can use";
@@ -275,50 +302,95 @@ bool ReadProfile(const std::filesystem::path& userIni, std::vector<std::string>&
     if (!load(userIni, d)) return false;
     bool in = false, found = false;
     for (const std::string& l : d.lines) {
-        if (!sectionName(l).empty()) { in = iequal(sectionName(l), ProfileSection); found = found || in; continue; }
+        if (!sectionName(l).empty()) { in = sectionName(l) == ProfileSection; found = found || in; continue; }
         if (in) body.push_back(l);
     }
     return found;
 }
 
-bool UseNewInput(const std::filesystem::path& mainIni, const std::filesystem::path& userIni)
+Current ReadCurrent(const std::filesystem::path& mainIni, const std::filesystem::path& userIni)
 {
-    std::string v;
-    Doc u, m;
-    if (load(userIni, u)) v = value(u, "Controls", "UseNewInput");
-    if (v.empty() && load(mainIni, m)) v = value(m, "Controls", "UseNewInput");
-    return iequal(v, "true") || v == "1";
+    Current c;
+    for (const auto& path : {mainIni, userIni}) {
+        std::error_code ec;
+        if (!std::filesystem::exists(path, ec)) continue;
+        try {
+            inih::INIReader ini(path);
+            c.useNewInput = effective<bool>(ini, "Controls", "UseNewInput", c.useNewInput);
+            c.primaryDev = effective<std::string>(ini, Remap, "DeviceGuid", c.primaryDev);
+            c.shifterDev = effective<std::string>(ini, Shifter, "DeviceGuid", c.shifterDev);
+            c.auxDev = effective<std::string>(ini, Aux, "DeviceGuid", c.auxDev);
+        } catch (...) {
+            // Settings::read skips a file it cannot parse; so does this.
+        }
+    }
+    return c;
 }
 
 bool Pending(const std::filesystem::path& userIni, const Plan& plan)
 {
-    Doc d;
-    return !load(userIni, d) || value(d, "ControlsApplied", "Revision") != plan.revision;
+    std::error_code ec;
+    if (!std::filesystem::exists(userIni, ec)) return true;
+    try {
+        inih::INIReader ini(userIni);
+        std::string none;
+        return ini.Get<std::string>(Applied, "Revision", none) != plan.revision;
+    } catch (...) {
+        return true;
+    }
 }
 
-bool Write(const std::filesystem::path& userIni, const Plan& plan, int fault)
+bool Write(const std::filesystem::path& userIni, const Plan& plan, std::string& why, int fault)
 {
-    if (!plan.ok) return false;
+    why.clear();
+    if (!plan.ok) { why = "no plan"; return false; }
     Doc d;
-    load(userIni, d); // a missing user INI starts empty (the game then reads only these keys from it)
-    const std::string original = render(d);
-    std::filesystem::path backup = userIni;
-    backup += ".before-profile-controls";
     std::error_code ec;
-    if (!std::filesystem::exists(backup, ec) && std::filesystem::exists(userIni, ec)) {
+    const bool existed = std::filesystem::exists(userIni, ec);
+    if (existed && !load(userIni, d)) { why = "cannot read the user INI"; return false; }
+    // An owned section under another letter case is a different section to the game: refuse rather than guess.
+    std::set<std::string> owned = {Applied};
+    for (const Key& k : plan.keys) owned.insert(k.section);
+    for (const std::string& l : d.lines) {
+        const std::string name = sectionName(l);
+        for (const std::string& o : owned)
+            if (!name.empty() && name != o && iequal(name, o)) { why = "[" + name + "] differs from [" + o + "] only in letter case"; return false; }
+    }
+    const std::string original = render(d);
+    std::filesystem::path backup = userIni, tmp = userIni;
+    backup += ".before-profile-controls";
+    tmp += ".controls-tmp";
+    if (existed && !std::filesystem::exists(backup, ec)) {
+        std::filesystem::path backupTmp = backup;
+        backupTmp += ".tmp";
         std::ifstream in(userIni, std::ios::binary);
         std::stringstream bytes;
         bytes << in.rdbuf();
-        if (!in || !replace(backup, bytes.str(), fault)) return false;
+        if (!in || !writeFile(backupTmp, bytes.str(), fault == 1) || fault == 2 || !moveOver(backupTmp, backup)) {
+            drop(backupTmp);
+            why = "cannot write the backup";
+            return false;
+        }
     }
     for (const Key& k : plan.keys) set(d, k.section, k.key, k.value);
-    set(d, "ControlsApplied", "Revision", plan.revision);
-    set(d, "ControlsApplied", "Profile", plan.profile);
-    for (const Key& k : plan.keys)
-        if (value(d, k.section, k.key) != k.value) return false;
-    if (value(d, "ControlsApplied", "Revision") != plan.revision) return false;
+    set(d, Applied, "Revision", plan.revision);
+    set(d, Applied, "Profile", plan.profile);
     const std::string text = render(d);
-    return text == original || replace(userIni, text, fault);
+    if (text == original) return true;
+    if (!writeFile(tmp, text, fault == 1)) { drop(tmp); why = "cannot write the temporary file"; return false; }
+    // Read back with the game's parser: every planned key must come out exactly as planned.
+    try {
+        inih::INIReader ini(tmp);
+        for (const Key& k : plan.keys)
+            if (ini.Get<std::string>(k.section, k.key) != k.value) throw std::runtime_error(k.section + " " + k.key);
+        if (ini.Get<std::string>(Applied, "Revision") != plan.revision) throw std::runtime_error("revision");
+    } catch (const std::exception& e) {
+        drop(tmp);
+        why = std::string("read-back differs: ") + e.what();
+        return false;
+    }
+    if (fault == 2 || !moveOver(tmp, userIni)) { drop(tmp); why = "cannot replace the user INI"; return false; }
+    return true;
 }
 
 std::vector<std::string> ApplyAtStartup(const std::filesystem::path& gameDir, bool& applied)
@@ -327,11 +399,12 @@ std::vector<std::string> ApplyAtStartup(const std::filesystem::path& gameDir, bo
     std::vector<std::string> log, body;
     const auto userIni = gameDir / "OutRun2006Tweaks.user.ini", mainIni = gameDir / "OutRun2006Tweaks.ini";
     if (!ReadProfile(userIni, body)) return log;
-    Plan plan = PlanLines(body, UseNewInput(mainIni, userIni));
+    Plan plan = PlanLines(body, ReadCurrent(mainIni, userIni));
     if (!plan.ok) { log.push_back("ProfileControls: profile '" + plan.profile + "' not applied: " + plan.error); return log; }
     if (!Pending(userIni, plan)) return log;
-    if (!Write(userIni, plan)) {
-        log.push_back("ProfileControls: profile '" + plan.profile + "' revision " + plan.revision + ": could not write the user INI; nothing changed");
+    std::string why;
+    if (!Write(userIni, plan, why)) {
+        log.push_back("ProfileControls: profile '" + plan.profile + "' revision " + plan.revision + " not applied: " + why + "; nothing changed");
         return log;
     }
     applied = true;

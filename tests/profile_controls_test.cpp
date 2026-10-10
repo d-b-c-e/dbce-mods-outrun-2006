@@ -168,6 +168,9 @@ int main()
     check(key(t, "DirectInput", "BrakeDeviceGuid") == SHIFTER_UPPER, "a pedal on its own device");
 
     // Refusals.
+    t = one("gear1 = hat 0 0 " SHIFTER);
+    check(key(t, "DirectInput.Shifter", "ButtonGear1") != "128" && noted(t, "gear1: the H-pattern reader takes buttons only"),
+          "hat gear refused (UpdateHPattern reads buttons)");
     t = one("throttle = button 3 " WHEEL);
     check(key(t, "DirectInput", "AccelerationAxis") == "<absent>" && noted(t, "throttle: a button pedal"), "button pedal");
     t = one("throttle = axis 2 " WHEEL " range=-32768..32767 rest=-32768 travel=+1");
@@ -254,6 +257,25 @@ int main()
     fs::remove(backup, ec);
     check(!Write(user, semicolon, why) && why.find("read-back differs") != std::string::npos && slurp(user) == owner && !fs::exists(tmp),
           "a value inih would cut at ' ;' is refused");
+
+    // A UTF-8 BOM before the first section (Astra 3590): kept apart, written back, the first section still recognised.
+    const std::string bom = "\xEF\xBB\xBF";
+    const std::string bomOwner = bom + "[DirectInput]\r\nDeviceGuid = " OTHER_UPPER "\r\nUseDirectInputRemap = true\r\n";
+    spit(user, bomOwner);
+    fs::remove(backup, ec);
+    check(Write(user, p, why), "write over a BOM file (" + why + ")");
+    const std::string withBom = slurp(user);
+    size_t g1 = withBom.find("DeviceGuid = "), g2 = withBom.find("DeviceGuid = ", g1 + 1);
+    check(withBom.compare(0, 3, bom) == 0 && withBom.find(bom, 3) == std::string::npos, "BOM kept once at the start");
+    check(withBom.compare(3, 14, "[DirectInput]\r") == 0 && g2 != std::string::npos && withBom.find("[DirectInput]", 4) == std::string::npos,
+          "the first section is edited in place, not duplicated");
+    check(read(user, "DirectInput", "DeviceGuid") == WHEEL_UPPER, "inih reads the replaced key after the BOM");
+    check(current("", bom + "[DirectInput.Aux]\nDeviceGuid = " OTHER_UPPER "\n").auxDev == OTHER_UPPER, "current state read through a BOM");
+    std::string bomStaged = bom + "[WheelkitProfile]\r\n";
+    for (const std::string& l : profile()) bomStaged += l + "\r\n";
+    std::vector<std::string> body;
+    spit(user, bomStaged);
+    check(ReadProfile(user, body) && !body.empty() && body[0] == "Schema = 1", "a staged profile right after a BOM is found");
 
     // Startup apply from the staged section.
     fs::remove(backup, ec);

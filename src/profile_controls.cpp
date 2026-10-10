@@ -119,7 +119,7 @@ std::string lineKey(const std::string& line)
     return eq == std::string::npos ? std::string() : ctl::trim(t.substr(0, eq));
 }
 
-struct Doc { std::vector<std::string> lines; bool crlf = false; };
+struct Doc { std::vector<std::string> lines; bool crlf = false, bom = false; };  // a UTF-8 BOM is kept apart, as inih strips it
 
 bool load(const std::filesystem::path& path, Doc& d)
 {
@@ -127,7 +127,9 @@ bool load(const std::filesystem::path& path, Doc& d)
     if (!in) return false;
     std::stringstream ss;
     ss << in.rdbuf();
-    const std::string text = ss.str();
+    std::string text = ss.str();
+    d.bom = text.compare(0, 3, "\xEF\xBB\xBF") == 0;
+    if (d.bom) text.erase(0, 3);
     d.crlf = text.find("\r\n") != std::string::npos;
     for (size_t start = 0; start < text.size();) {
         size_t end = text.find('\n', start);
@@ -142,7 +144,7 @@ bool load(const std::filesystem::path& path, Doc& d)
 
 std::string render(const Doc& d)
 {
-    std::string out;
+    std::string out = d.bom ? "\xEF\xBB\xBF" : "";
     for (const std::string& l : d.lines) out += l + (d.crlf ? "\r\n" : "\n");
     return out;
 }
@@ -266,6 +268,8 @@ Plan PlanLines(const std::vector<std::string>& lines, const Current& current)
         int gear = 0;
         for (int i = 0; i < 6; ++i) if (e.action == kGears[i]) gear = i + 1;
         if (gear || e.action == "reverse") {
+            // The H-pattern reader (hooks_inputremap.cpp UpdateHPattern) reads rgbButtons only: a POV gear never selects.
+            if (x.kind != ctl::Kind::Button) { b.note(e.action, "the H-pattern reader takes buttons only"); continue; }
             if (!b.slot(b.shifterDev, Shifter, x, e.action)) continue;
             gearClash = gearClash || !gearButtons.insert(raw).second;
             b.key(Shifter, gear ? "ButtonGear" + std::to_string(gear) : std::string("ButtonGearReverse"), number(raw));

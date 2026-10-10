@@ -27,14 +27,17 @@ Check ($null -eq (Get-ControlsCapability 'any' (Join-Path $root 'tools/controls-
 # Runtime-tree identity in the real repository: a later documentation/policy commit keeps the capability, a commit with
 # other runtime sources does not.
 $repoPolicy = Join-Path $root 'tools/controls-capability.json'
-$reviewedCommit = @((Get-Content -LiteralPath $repoPolicy -Raw | ConvertFrom-Json).reviewedRuntimeCommits)[0]
-if ($reviewedCommit) {
+$reviewedCommits = @((Get-Content -LiteralPath $repoPolicy -Raw | ConvertFrom-Json).reviewedRuntimeCommits)
+if ($reviewedCommits.Count) {
     $head = (& git -C $root rev-parse HEAD).Trim()
-    & git -C $root diff --quiet $reviewedCommit $head -- src external lib cmake.toml CMakeLists.txt cmkr.cmake
-    $same = $LASTEXITCODE -eq 0
-    Check ([bool](Get-ControlsCapability $head $repoPolicy $root) -eq $same) 'HEAD qualifies exactly when its runtime sources equal the reviewed commit''s'
+    $same = $false
+    foreach ($reviewedCommit in $reviewedCommits) {
+        & git -C $root diff --quiet $reviewedCommit $head -- src external lib cmake.toml CMakeLists.txt cmkr.cmake
+        if ($LASTEXITCODE -eq 0) { $same = $true }
+    }
+    Check ([bool](Get-ControlsCapability $head $repoPolicy $root) -eq $same) 'HEAD qualifies exactly when its runtime sources equal a reviewed commit''s'
     Check ($null -eq (Get-ControlsCapability (& git -C $root rev-parse eb604ad).Trim() $repoPolicy $root)) 'An earlier runtime (eb604ad) does not qualify'
-    if ($head -ne $reviewedCommit) { Check ($null -eq (Get-ControlsCapability $head $repoPolicy)) 'Without the repository only exact listed commits qualify' }
+    if ($reviewedCommits -notcontains $head) { Check ($null -eq (Get-ControlsCapability $head $repoPolicy)) 'Without the repository only exact listed commits qualify' }
 }
 @{schemaVersion=2; reviewedRuntimeCommits=@('reviewed-commit')} | ConvertTo-Json | Set-Content -LiteralPath $policy
 $failed = $false

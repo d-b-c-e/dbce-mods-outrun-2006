@@ -41,6 +41,29 @@ namespace RemapInject
 	// The instance's read failed or its slot was released: its running samples end.
 	void DeviceGone(const GUID& instance);
 
+	// The observer for an injected run, because a signal-muted process publishes no telemetry (SimHub can turn that
+	// shared memory into shaker output). While armed, each FFB update copies the game's own car words into
+	// "Local\DbceOutRunInjectObserve-<nonce>", a mapping only the run's observer knows: ObserveData below. No UDP, no
+	// other reader, nothing when not armed.
+#pragma pack(push, 1)
+	struct ObserveData
+	{
+		uint32_t version;      // 1
+		uint32_t packetId;     // incremented after each update's fields are written
+		uint32_t tickMs;       // GetTickCount of the update
+		float speed;           // EVWORK_CAR field_1C4, as OutRun2006Telemetry's speed
+		float steer;           // EVWORK_CAR field_1D0, as OutRun2006Telemetry's steeringAngle
+		int32_t pedal;         // EVWORK_CAR pedal_amount_34: the game's throttle, 0..255
+		uint32_t gear;         // EVWORK_CAR cur_gear_208
+		uint32_t gameMode;     // Game::current_mode
+		uint8_t inGameplay;
+		uint8_t pad[3];
+	};
+#pragma pack(pop)
+	static_assert(sizeof(ObserveData) == 36, "ObserveData layout");
+	void Observe(float speed, float steer, int pedal, uint32_t gear, uint32_t gameMode, bool inGameplay);
+	std::string ObserveName();   // "" when not armed
+
 	// Tests only: arm without files or environment (lines = the applied [Controls] body; nonce "test", no expiry), feed
 	// one command or a whole command file, end the session at a time, read an inject.on text, use an explicit clock,
 	// and deliver into a state with a range function instead of a device.

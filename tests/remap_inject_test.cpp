@@ -130,7 +130,23 @@ int main(int argc, char** argv)
           "not armed: commands refused");
 
     check(RemapInject::InstanceText(kWheel) == WHEEL_DEV, "instance text is the toolkit's normalized form");
+    RemapInject::Observe(0.5f, 0.25f, 255, 3, 7, true);
+    check(RemapInject::ObserveName().empty() && !OpenFileMappingA(FILE_MAP_READ, FALSE, "Local\\DbceOutRunInjectObserve-test"),
+          "not armed: no observation mapping");
     check(RemapInject::TestArm(profile()) && RemapInject::Armed(), "test arm");
+    {
+        // The observer: the game's car words in a mapping named for the session, updated per FFB update.
+        check(RemapInject::ObserveName() == "Local\\DbceOutRunInjectObserve-test", "observation name carries the session nonce");
+        RemapInject::Observe(0.5f, -0.25f, 200, 3, 7, true);
+        HANDLE map = OpenFileMappingA(FILE_MAP_READ, FALSE, "Local\\DbceOutRunInjectObserve-test");
+        const auto* o = map ? static_cast<const RemapInject::ObserveData*>(MapViewOfFile(map, FILE_MAP_READ, 0, 0, sizeof(RemapInject::ObserveData))) : nullptr;
+        check(o && o->version == 1 && o->packetId == 1 && o->speed == 0.5f && o->steer == -0.25f && o->pedal == 200 && o->gear == 3 &&
+              o->gameMode == 7 && o->inGameplay == 1, "observation published");
+        RemapInject::Observe(0.6f, 0.0f, 0, 3, 7, true);
+        check(o && o->packetId == 2 && o->speed == 0.6f && o->pedal == 0, "each update advances the packet");
+        if (o) UnmapViewOfFile(o);
+        if (map) CloseHandle(map);
+    }
     RemapInject::TestClock(1000);
 
     // Raw samples replace exactly their objects on their own instance, in the device's range.

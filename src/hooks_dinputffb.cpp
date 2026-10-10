@@ -24,6 +24,7 @@
 #include <exception>
 
 #include "hook_mgr.hpp"
+#include "remap_inject.hpp"
 #include "plugin.hpp"
 #include "legacy_force_configuration.hpp"
 #include "game_addrs.hpp"
@@ -919,6 +920,9 @@ static void SampleSurface(EVWORK_CAR* car, float& roughness, DWORD& waterFlag)
 
 		bool inGameplay = IsInGameplay();
 		Telemetry::Write(car, inGameplay);
+		// Dev-only observer for an injected, signal-muted run (remap_inject.hpp): the game's own car words.
+		RemapInject::Observe(car->field_1C4, car->field_1D0, car->pedal_amount_34, car->cur_gear_208,
+			Game::current_mode ? *Game::current_mode : 0, inGameplay);
 
         if (OutRunSignalMute::BlocksOutput()) {
             ProcessMutedSignals(car);

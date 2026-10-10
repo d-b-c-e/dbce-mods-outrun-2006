@@ -275,6 +275,41 @@ namespace RemapInject
 		});
 	}
 
+	std::string ObserveName()
+	{
+		if (!g_armed) return {};
+		std::lock_guard<std::mutex> g(g_session);
+		return "Local\\DbceOutRunInjectObserve-" + g_nonce;
+	}
+
+	void Observe(float speed, float steer, int pedal, uint32_t gear, uint32_t gameMode, bool inGameplay)
+	{
+		if (!g_armed) return;
+		static ObserveData* view = nullptr;
+		static bool failed = false;
+		if (!view && !failed)
+		{
+			const std::string name = ObserveName();
+			HANDLE map = CreateFileMappingA(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(ObserveData), name.c_str());
+			view = map ? static_cast<ObserveData*>(MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(ObserveData))) : nullptr;
+			if (!view) { failed = true; Log("observation mapping " + name + " failed (" + std::to_string(GetLastError()) + ")"); return; }
+			// The mapping lives as long as the process: one per armed run.
+			*view = ObserveData{};
+			view->version = 1;
+			Log("observation published as " + name);
+		}
+		if (!view) return;
+		view->tickMs = GetTickCount();
+		view->speed = speed;
+		view->steer = steer;
+		view->pedal = pedal;
+		view->gear = gear;
+		view->gameMode = gameMode;
+		view->inGameplay = inGameplay ? 1 : 0;
+		MemoryBarrier();
+		++view->packetId;
+	}
+
 	void DeviceGone(const GUID& instance)
 	{
 		if (!g_table.any()) return;

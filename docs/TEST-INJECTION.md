@@ -41,6 +41,18 @@ resolves through the same applied store the game reads, so it cannot catch a wro
 
 `tools/Test-RemapInject.ps1` runs `tests/remap_inject_test.cpp` (MSVC x86, `/W4 /WX`) in two processes:
 - unmuted: a request is refused even with everything else in place. This process also covers delivery, ranges, missing
-  objects, actions, timing, drop on failure/release, the file caps, expiry and the `inject.on` grammar.
+  objects, actions, timing, drop on failure/release, the file caps, expiry, the `inject.on` grammar and the observer.
 - `--muted`: no request, a pending profile, a session beyond an hour and a missing session are each refused; an
   applied profile arms.
+
+## Observer
+
+A signal-muted process publishes no telemetry: no shared memory and no Forza UDP, because SimHub can turn those into
+shaker output. While injection is armed, each FFB update copies the game's own car words into
+`Local\DbceOutRunInjectObserve-<nonce>`. That is a mapping only the run's observer knows; nothing else reads it. It
+holds 36 bytes, `RemapInject::ObserveData`:
+- `speed` and `steer`: EVWORK_CAR `field_1C4` and `field_1D0`, as OutRun2006Telemetry has them;
+- `pedal`: `pedal_amount_34`, the game's throttle;
+- `gear`, the game mode, in-gameplay, and a packet counter.
+
+Nothing is published when not armed.

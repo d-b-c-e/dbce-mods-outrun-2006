@@ -53,7 +53,8 @@ $manifest = [ordered]@{schemaVersion=2; architecture='x86'; sourceCommit=$runtim
 # STD-033: declare the rig-profile controls capability only for an exact reviewed runtime commit
 # (tools/controls-capability.json); the installer turns it into the game-folder receipt Wheelkit reads.
 . (Join-Path $PSScriptRoot 'ControlsCapability.ps1')
-$capability = Get-ControlsCapability $runtimeCommit (Join-Path $PSScriptRoot 'controls-capability.json') ($capability) { foreach ($k in $capability.Keys) { $manifest[$k] = $capability[$k] } }
+$capability = Get-ControlsCapability $runtimeCommit (Join-Path $PSScriptRoot 'controls-capability.json') $root
+if ($capability) { foreach ($k in $capability.Keys) { $manifest[$k] = $capability[$k] } }
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $out 'package-manifest.json') -Encoding UTF8
 Assert-PackageInventory $out -ForDistribution:(-not $ReviewOnly)
 Compress-Archive -LiteralPath $out -DestinationPath ($out + '.zip')

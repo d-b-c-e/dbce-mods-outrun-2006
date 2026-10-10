@@ -24,6 +24,18 @@ Check ($null -eq (Get-ControlsCapability 'other-commit' $policy)) 'Unreviewed co
 Check ($null -eq (Get-ControlsCapability 'reviewed' $policy)) 'A prefix is not the commit'
 Check ($null -eq (Get-ControlsCapability '' $policy)) 'No commit declares nothing'
 Check ($null -eq (Get-ControlsCapability 'any' (Join-Path $root 'tools/controls-capability.json'))) 'The repository policy lists no unreviewed commit'
+# Runtime-tree identity in the real repository: a later documentation/policy commit keeps the capability, a commit with
+# other runtime sources does not.
+$repoPolicy = Join-Path $root 'tools/controls-capability.json'
+$reviewedCommit = @((Get-Content -LiteralPath $repoPolicy -Raw | ConvertFrom-Json).reviewedRuntimeCommits)[0]
+if ($reviewedCommit) {
+    $head = (& git -C $root rev-parse HEAD).Trim()
+    & git -C $root diff --quiet $reviewedCommit $head -- src external lib cmake.toml CMakeLists.txt cmkr.cmake
+    $same = $LASTEXITCODE -eq 0
+    Check ([bool](Get-ControlsCapability $head $repoPolicy $root) -eq $same) 'HEAD qualifies exactly when its runtime sources equal the reviewed commit''s'
+    Check ($null -eq (Get-ControlsCapability (& git -C $root rev-parse eb604ad).Trim() $repoPolicy $root)) 'An earlier runtime (eb604ad) does not qualify'
+    if ($head -ne $reviewedCommit) { Check ($null -eq (Get-ControlsCapability $head $repoPolicy)) 'Without the repository only exact listed commits qualify' }
+}
 @{schemaVersion=2; reviewedRuntimeCommits=@('reviewed-commit')} | ConvertTo-Json | Set-Content -LiteralPath $policy
 $failed = $false
 try { Get-ControlsCapability 'reviewed-commit' $policy | Out-Null } catch { $failed = $_.Exception.Message -like 'Unsupported controls capability policy*' }

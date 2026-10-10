@@ -140,6 +140,10 @@ int main()
     Current oldPrimary; oldPrimary.primaryDev = OTHER_UPPER;
     Plan wheelSwap = one("confirm = button 31 " WHEEL, oldPrimary);
     check(key(wheelSwap, "DirectInput", "ButtonX") == "-1" && key(wheelSwap, "DirectInput", "ButtonA") == "31", "a different primary wheel keeps no old buttons");
+    Current autoPrimary; autoPrimary.primaryDev = "auto"; autoPrimary.shifterDev = "Auto";
+    Plan fromAuto = one("shiftUp = button 9 " SHIFTER, autoPrimary);
+    check(key(fromAuto, "DirectInput", "ButtonX") == "<absent>" && key(fromAuto, "DirectInput.Shifter", "ButtonGear3") == "-1",
+          "DeviceGuid = auto is no identity: the primary keeps extras, an optional slot clears inactive numbers");
     Current samePrimary; samePrimary.primaryDev = WHEEL_UPPER;
     check(key(one("confirm = button 31 " WHEEL, samePrimary), "DirectInput", "ButtonX") == "<absent>", "same primary wheel: extras kept");
 

@@ -92,7 +92,10 @@ struct Builder
         const char* const (&keys)[N])
     {
         if (planned.empty()) return;
-        const bool changed = current.empty() ? unsetIsChange : !iequal(current, guidText(planned));
+        // "auto" (the remap picks the device itself) is no device identity: treated as unset, so the primary keeps the
+        // owner's extra buttons, and an optional slot enabled from it keeps no inactive numbers.
+        const bool unset = current.empty() || iequal(current, "auto");
+        const bool changed = unset ? unsetIsChange : !iequal(current, guidText(planned));
         if (!changed) return;
         for (const char* k : keys)
             if (!has(section, k)) {
